@@ -1,0 +1,22 @@
+
+line-length = 100
+target-version = "py312"
+indent-width = 4
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # Pyflakes
+    # "I",    # Import sorting
+    "UP",   # Modern Python syntax
+    "B",    # Common bug patterns
+]
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
