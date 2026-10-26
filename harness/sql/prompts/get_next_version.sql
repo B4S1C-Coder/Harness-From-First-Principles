@@ -1,0 +1,1 @@
+SELECT COALESCE(MAX(version), 0) + 1 FROM prompt_versions WHERE prompt_id = ?;

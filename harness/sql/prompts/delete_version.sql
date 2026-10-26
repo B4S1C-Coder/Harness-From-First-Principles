@@ -1,0 +1,1 @@
+DELETE FROM prompt_versions WHERE prompt_id = ? AND version = ?;

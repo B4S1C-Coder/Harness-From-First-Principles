@@ -1,0 +1,1 @@
+SELECT id, name, description, created_at FROM prompts ORDER BY name;
