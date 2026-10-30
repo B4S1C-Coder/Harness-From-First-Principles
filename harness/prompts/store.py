@@ -20,6 +20,9 @@ class PromptStore:
             for path in sql_directory.rglob("*.sql")
         }
 
+        if not cls._queries:
+            raise RuntimeError("No SQL files found. Prompt Store can't be used.")
+
         database.parent.mkdir(parents=True, exist_ok=True)
 
         connection = sqlite3.connect(database)
@@ -40,7 +43,7 @@ class PromptStore:
         cls._connection = connection
     
     @classmethod
-    def load_prompt(cls, name: str, *, version: int | None = None, **kwargs: Any) -> str:
+    def load_prompt(cls, _prompt_name: str, *, version: int | None = None, **kwargs: Any) -> str:
         """ Loads the specified prompt with filled in placeholders. """
 
         if cls._connection is None:
@@ -48,14 +51,14 @@ class PromptStore:
         
         if version is None:
             query = cls._queries["prompts/get_latest_version.sql"]
-            row = cls._connection.execute(query, (name,)).fetchone()
+            row = cls._connection.execute(query, (_prompt_name,)).fetchone()
         else:
             query = cls._queries["prompts/get_version.sql"]
-            row = cls._connection.execute(query, (name, version,)).fetchone()
+            row = cls._connection.execute(query, (_prompt_name, version,)).fetchone()
 
         if row is None:
             raise LookupError(
-                f"Prompt {name!r}"
+                f"Prompt {_prompt_name!r}"
                 + (f", version {version}" if version is not None else "")
                 + " was not found"
             )
@@ -65,7 +68,7 @@ class PromptStore:
     @classmethod
     def add_prompt(
         cls,
-        name: str,
+        _prompt_name: str,
         template: str,
         *, # All args after it are keyword only
         description: str | None = None,
@@ -82,13 +85,13 @@ class PromptStore:
         with connection:
             row = connection.execute(
                 cls._queries["prompts/get_prompt.sql"],
-                (name,),
+                (_prompt_name,),
             ).fetchone()
 
             if row is None:
                 cursor = connection.execute(
                     cls._queries["prompts/insert_prompt.sql"],
-                    (name, description),
+                    (_prompt_name, description),
                 )
                 prompt_id = cursor.fetchone()["id"]
                 next_version = 1
@@ -98,7 +101,7 @@ class PromptStore:
 
                 latest = connection.execute(
                     cls._queries["prompts/get_latest_version.sql"],
-                    (name,),
+                    (_prompt_name,),
                 ).fetchone()
 
                 if latest["template"] == template:
