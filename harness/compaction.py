@@ -1,5 +1,9 @@
+import json
+
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
+from .prompts import PromptStore, PromptFamily
+from .roles import MessageRole
 
 def naive_compaction(
     messages: list[ChatCompletionMessageParam],
@@ -33,7 +37,30 @@ def naive_compaction(
     if not old_history:
         return messages
     
-    # response = llm_client.chat.completions.create(
-    #     model=model_name,
-    #     messages = 
-    # )
+    response = llm_client.chat.completions.create(
+        model=model_name,
+        messages = [
+            {
+                "role": MessageRole.system,
+                "content": PromptStore.load_prompt(PromptFamily.COMPACTION),
+            },
+            {
+                "role": MessageRole.user,
+                "content": json.dumps(old_history, ensure_ascii=False),
+            }
+        ],
+    )
+
+    summary = response.choices[0].message.content
+
+    if not summary:
+        return messages
+    
+    return [
+        messages[0],  # System Prompt
+        {
+            "role": MessageRole.system,
+            "content": ("Summary of earlier conversation:\n" + summary), # Summary
+        },
+        *recent_history, # Recent History to preserve immediate context
+    ]
