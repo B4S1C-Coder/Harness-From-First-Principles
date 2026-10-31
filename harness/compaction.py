@@ -2,8 +2,8 @@ import json
 
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
-from .prompts import PromptStore, PromptFamily
-from .roles import MessageRole
+from .prompts import PromptStore
+from .enums import PromptFamily, MessageRole
 
 def naive_compaction(
     messages: list[ChatCompletionMessageParam],
