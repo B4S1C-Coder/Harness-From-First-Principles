@@ -6,7 +6,7 @@ from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
 from pathlib import Path
 from collections.abc import Generator
 from uuid import uuid4
-from .helpers import load_env_var_as_or_default as load_env
+from .helpers import load_env
 
 class _CorrelationFilter(logging.Filter):
     def __init__(self, context: ContextVar[str]) -> None:
