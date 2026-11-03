@@ -1,6 +1,6 @@
-from enum import Enum
+from enum import StrEnum
 
-class PromptFamily(Enum):
+class PromptFamily(StrEnum):
     SYSTEM     = "system"
     COMPACTION = "compaction"
     GUARDRAILS = "guardrails"

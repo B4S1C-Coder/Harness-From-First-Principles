@@ -23,9 +23,11 @@ class ApplicationLogger:
         log_dir: str | Path = "logs",
         max_bytes: int = load_env("APP_LOGGER_MAX_BYTES", cast=int, default= 5 * 1024 * 1024),
         backup_count: int = load_env("APP_BACKUP_COUNT", cast=int, default=3),
+        console: bool = False,
     ) -> None:
 
         self._closed = False
+        self._console = console
 
         self._correlation_id: ContextVar[str] = ContextVar(
             f"correlation_id_{uuid4().hex}", default="-"
@@ -39,11 +41,11 @@ class ApplicationLogger:
         )
 
         self._app_logger, self._app_listener = self._setup_logger(
-            "application", self._log_dir / "application.log", max_bytes, backup_count
+            "application", self._log_dir / "application.log", max_bytes, backup_count, console
         )
 
         self._trace_logger, self._trace_listener = self._setup_logger(
-            "traces", self._log_dir / "traces.log", max_bytes, backup_count
+            "traces", self._log_dir / "traces.log", max_bytes, backup_count, console
         )
     
     def _setup_logger(
@@ -52,6 +54,7 @@ class ApplicationLogger:
         path: Path,
         max_bytes: int,
         backup_count: int,
+        console: bool
     ) -> tuple[logging.Logger, QueueListener]:
 
         log_queue: queue.Queue[logging.LogRecord] = queue.Queue()
@@ -74,8 +77,15 @@ class ApplicationLogger:
         logger.propagate = False
         logger.addHandler(queue_handler)
 
+        handlers: list[logging.Handler] = [file_handler]
+        
+        if console:
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(self._formatter)
+            handlers.append(console_handler)
+
         listener = QueueListener(
-            log_queue, file_handler, respect_handler_level=True
+            log_queue, *handlers, respect_handler_level=True
         )
         listener.start()
 

@@ -4,6 +4,7 @@ class ApplicationException(Exception):
     log_trace: bool = False
 
     def __init__(self, message: str) -> None:
+        self.message = message
         super().__init__(message)
 
 # Configuration Related Errors

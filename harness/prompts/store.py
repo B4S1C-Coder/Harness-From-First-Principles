@@ -1,13 +1,14 @@
 import sqlite3
 from pathlib import Path
 from typing import Any
+from .. import PKG_ROOT_DIR
 
 class PromptStore:
     _connection: sqlite3.Connection | None = None
     _queries: dict[str, str] = {}
 
     @classmethod
-    def initialize(cls, database: Path, sql_directory: Path):
+    def initialize(cls, database: Path, sql_directory: Path = PKG_ROOT_DIR / "sql"):
         """ Initializes Sqlite connection and tables. """
 
         if cls._connection is not None:

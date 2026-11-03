@@ -12,6 +12,9 @@ select = [
     "B",    # Common bug patterns
 ]
 
+# No need to enforce module level imports at top of file
+ignore = ["E402"]
+
 [lint.per-file-ignores]
 "__init__.py" = ["F401"]
 

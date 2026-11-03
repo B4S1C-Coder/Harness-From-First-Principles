@@ -1,6 +1,5 @@
 from functools import wraps
 from collections.abc import Callable
-from typing import Any
 from pathlib import Path
 
 import openai
@@ -12,7 +11,7 @@ from openai.types.chat import (
 from ..helpers import load_env
 from .. import exceptions, PKG_ROOT_DIR
 
-def guarded_execution(func: Callable[..., Any]) -> Callable[..., Any]:
+def guarded_execution[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     
     source_file = Path(func.__code__.co_filename)
 
@@ -27,9 +26,9 @@ def guarded_execution(func: Callable[..., Any]) -> Callable[..., Any]:
     )
     
     @wraps(func)
-    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         try:
-            return func(self, *args, **kwargs)
+            return func(*args, **kwargs)
 
         except openai.AuthenticationError as exc:
             raise exceptions.InvalidAPIKeyError(source) from exc
@@ -91,16 +90,20 @@ class SyncTextLLMClient:
         )
         
         usage = response.usage
-        details = usage.prompt_tokens_details if usage else None
 
-        if not usage or not details:
+        if usage is None:
             if not dangerously_ignore_usage:
                 raise exceptions.UnexpectedResponseError(
-                    self.__class__.__qualname__, "Usage statistics not present in response"
+                    self.__class__.__qualname__,
+                    "Usage statistics not present in response",
                 )
+
+            return response, 0, 0
+        
+        details = usage.prompt_tokens_details
 
         return (
             response,
-            usage.prompt_tokens if usage else 0,
+            usage.prompt_tokens,
             details.cached_tokens or 0 if details else 0
         )

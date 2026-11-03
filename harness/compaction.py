@@ -1,14 +1,14 @@
 import json
 
-from openai import OpenAI
+from typing import cast
 from openai.types.chat import ChatCompletionMessageParam
 from .prompts import PromptStore
-from .enums import PromptFamily, MessageRole
+from .enums import PromptFamily
+from .llms import SyncTextLLMClient
 
 def naive_compaction(
     messages: list[ChatCompletionMessageParam],
-    llm_client: OpenAI,
-    model_name: str,
+    llm_client: SyncTextLLMClient,
     recent_turns_to_keep: int,
 ) -> list[ChatCompletionMessageParam]:
     """
@@ -36,31 +36,28 @@ def naive_compaction(
 
     if not old_history:
         return messages
-    
-    response = llm_client.chat.completions.create(
-        model=model_name,
-        messages = [
-            {
-                "role": MessageRole.system,
-                "content": PromptStore.load_prompt(PromptFamily.COMPACTION),
-            },
-            {
-                "role": MessageRole.user,
-                "content": json.dumps(old_history, ensure_ascii=False),
-            }
-        ],
-    )
+
+    response, _, _ = llm_client.generate_next([], cast(list[ChatCompletionMessageParam], [
+        {
+            "role": "system",
+            "content": PromptStore.load_prompt(PromptFamily.COMPACTION),
+        },
+        {
+            "role": "user",
+            "content": json.dumps(old_history, ensure_ascii=False),
+        },
+    ]))
 
     summary = response.choices[0].message.content
 
     if not summary:
         return messages
     
-    return [
+    return cast(list[ChatCompletionMessageParam], [
         messages[0],  # System Prompt
         {
-            "role": MessageRole.system,
+            "role": "system",
             "content": ("Summary of earlier conversation:\n" + summary), # Summary
         },
         *recent_history, # Recent History to preserve immediate context
-    ]
+    ])
