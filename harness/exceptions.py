@@ -32,6 +32,18 @@ class InvalidAPIKeyError(ConfigurationError):
 class ExternalServiceError(ApplicationException):
     """ Raised for errors related to external services such as rate limits, empty response etc. """
 
+class ConnectionError(ExternalServiceError):
+    """ Raised when connection with external service can't be established """
+
+    def __init__(self, service: str = "external service") -> None:
+        super().__init__(f"{service}: Unable to establish connection with external servce.")
+
+class TimeoutError(ExternalServiceError):
+    """ Raised when connection with external service has timed out """
+
+    def __init__(self, service: str = "external service") -> None:
+        super().__init__(f"{service}: Conection timed out.")
+
 class RateLimitedError(ExternalServiceError):
     """ Raised when the external service has applied rate limits and execution can't procced. """
 
