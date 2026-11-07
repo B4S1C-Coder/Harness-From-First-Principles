@@ -10,10 +10,6 @@ ROOT = Path(__file__).resolve().parent
 SYSTEM_PROMPT = """
 You are a helpful assistant running inside a Python tool-calling harness.
 
-You have access to these tools:
-- get_weather(location): retrieves weather information for a location.
-- list_directory(path): lists the contents of a directory.
-
 Instructions:
 1. Use tools whenever the user requests information that requires them.
 2. Never invent tool results or claim a tool was executed when it wasn't.
@@ -38,5 +34,5 @@ Return only the summary.
 
 PromptStore.initialize(ROOT / "data" / "prompts.db")
 PromptStore.add_prompt(PromptFamily.SYSTEM, SYSTEM_PROMPT)
-PromptStore.add_prompt(PromptFamily.COMPACTION, COMPACTION_PROMPT)
+# PromptStore.add_prompt(PromptFamily.COMPACTION, COMPACTION_PROMPT)
 PromptStore.close()

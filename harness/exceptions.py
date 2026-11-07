@@ -1,3 +1,6 @@
+import errno
+from pathlib import Path
+
 class ApplicationException(Exception):
     """ Base exception for application specific errors. """
 
@@ -28,6 +31,16 @@ class InvalidAPIKeyError(ConfigurationError):
 
     def __init__(self, service: str = "external service") -> None:
         super().__init__(f"Invalid API key for '{service}'.")
+
+class NotADirectory(ConfigurationError, NotADirectoryError):
+    """ Specified path is not a directory. """
+
+    def __init__(self, root: str | Path) -> None:
+        root_str = str(root)
+        msg = f"Path: '{root_str}' is not a directory."
+
+        ConfigurationError.__init__(self, msg)
+        NotADirectoryError.__init__(self, errno.ENOTDIR, msg, root_str)
 
 # External Service Related Errors
 class ExternalServiceError(ApplicationException):
@@ -69,3 +82,14 @@ class UnexpectedResponseError(ExternalServiceError):
             message += f" {detail}"
 
         super().__init__(message)
+
+# Tool Execution related errors
+class ToolExecutionError(ApplicationException):
+    """ Raised for errors during tool execution or invalid tool calls. """
+
+class PermissionDenied(ToolExecutionError, PermissionError):
+    """ Raised when a general action lacks the required permissions. """
+
+    def __init__(self, message: str) -> None:
+        ToolExecutionError.__init__(self, message)
+        PermissionError.__init__(self, None, message)
