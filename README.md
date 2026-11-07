@@ -1,77 +1,145 @@
 # Harness from First Principles
+A harness being built from first principles to understand what even is an harness. The [`harness/`](./harness/) folder contains the harness (from first principles) as a framework. The harness is being made incrementally by introducing new features whilst addressing any shortcomings in the existing ones. So it's best to make this as a reusable framework as opposed to a task specific harness.
 
-A harness being built from first principles to understand what even is an harness.
+## Making a Basic Agent
+An example of a very simple and naive agent using the framework. Note that below are just the useful snippets. See the complete examples in the [relevant examples folder](./examples/basic_agent/).
 
-## Demo Run output
+```python
+class BasicAgent(SynchronousAgentBase):
+    def handle_message(self, message: ChatCompletionMessage) -> bool:
+        content = message.content
+
+        if not content:
+            raise UnexpectedResponseError(
+                self.__class__.__qualname__, "Empty LLM response"
+            )
+
+        print(f"LLM Reply> {content}")
+
+        # For normal messages end the turn
+        return False
+
+    def handle_tool_call(self, message: ChatCompletionMessage) -> bool:
+        self.logger.debug("Executing tool calls...")
+
+        for tool_call in message.tool_calls or []:
+
+            if not isinstance(tool_call, ChatCompletionMessageFunctionToolCall):
+                self.logger.warning("Unsupported tool call skipped")
+                continue
+
+            self.logger.debug(f"Executing tool call: {tool_call.function.name}")
+
+            result = ToolRegistry.execute(
+                tool_call.function.name, json.loads(tool_call.function.arguments)
+            )
+
+            self.messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": json.dumps(result),
+            })
+
+        # For tool calls continue the turn (LLM gets multiple chances to run tools)
+        return True
+```
+
+Running it is as simple as:
+```python
+agent = BasicAgent(
+    client=SyncTextLLMClient(),
+    logger=logger,
+    tools=tools,
+    system_prompt=PromptStore.load_prompt(PromptFamily.SYSTEM)
+)
+
+try:
+    while True:
+        query = input().strip()
+
+        if query.lower() in ("exit", "quit"):
+            break
+
+        if not query:
+            continue
+
+        with agent.turn():
+            agent.add_user_message(query)
+
+            # step returns whether current turn should continue or not
+            # you can add extra (in between turn) logic here, like determining
+            # if the agent is in correct direction or not etc. or in a
+            # master agent governing a sub agent secanrio.
+            while agent.step():
+
+                # For this simple example we do nothing.
+                pass
+
+finally:
+    logger.close()
+```
+
+## Demo Run Output
 ```bash
-uv run python -m examples.basic_agent
+uv run python -m examples.basic_agent.run
 ```
 
 ```log
-2026-11-04 03:27:33,146 | DEBUG    | 5ab5c82ba78047acb797c1b2b28eda4f | app.137784124465056.application | Query sent to model.
-LLM Reply> Got it! Atlas is a Spring Boot project using PostgreSQL as its database and Docker for containerization. Let me know if you need anything specific for it.
-2026-11-04 03:27:35,588 | INFO     | 5ab5c82ba78047acb797c1b2b28eda4f | app.137784124465056.application | Input tok: 343, Cached tok: 0
-2026-11-04 03:27:35,588 | DEBUG    | d7117886888a4999b688b40897a63088 | app.137784124465056.application | Query sent to model.
-2026-11-04 03:27:36,647 | INFO     | d7117886888a4999b688b40897a63088 | app.137784124465056.application | Input tok: 392, Cached tok: 0
-2026-11-04 03:27:36,647 | DEBUG    | d7117886888a4999b688b40897a63088 | app.137784124465056.application | Executing tool calls ...
-2026-11-04 03:27:36,647 | DEBUG    | d7117886888a4999b688b40897a63088 | app.137784124465056.application | Executing tool call: get_weather
-2026-11-04 03:27:36,647 | DEBUG    | d7117886888a4999b688b40897a63088 | app.137784124465056.application | Query sent to model.
-LLM Reply> **Patiala – Weather Forecast**
-
-- **Temperature:** 28 °C  
-- **Condition:** Sunny
-
-Let me know if you’d like a more detailed forecast or anything else!
-2026-11-04 03:27:37,283 | INFO     | d7117886888a4999b688b40897a63088 | app.137784124465056.application | Input tok: 456, Cached tok: 0
-2026-11-04 03:27:37,284 | DEBUG    | f15cc7fe5bce49a2816d85ab6ce2c4f9 | app.137784124465056.application | Query sent to model.
+2026-11-07 13:01:39,648 | DEBUG    | a10089293cb94bc0b8de3da16f20f7f7 | app.128280563737728.application | Query sent to the model.
+LLM Reply> Got it! Your project **Atlas** uses Spring Boot, PostgreSQL, and Docker. I’ll keep that in mind for future questions.
+2026-11-07 13:01:40,438 | INFO     | a10089293cb94bc0b8de3da16f20f7f7 | app.128280563737728.application | Input tok; 343, Cached tok: 0
+2026-11-07 13:01:40,439 | DEBUG    | aadd4fcce0a54562920baea3f03608d7 | app.128280563737728.application | Query sent to the model.
+2026-11-07 13:01:40,979 | INFO     | aadd4fcce0a54562920baea3f03608d7 | app.128280563737728.application | Input tok; 423, Cached tok: 0
+2026-11-07 13:01:40,980 | DEBUG    | aadd4fcce0a54562920baea3f03608d7 | app.128280563737728.application | Executing tool calls...
+2026-11-07 13:01:40,980 | DEBUG    | aadd4fcce0a54562920baea3f03608d7 | app.128280563737728.application | Executing tool call: get_weather
+2026-11-07 13:01:40,980 | DEBUG    | aadd4fcce0a54562920baea3f03608d7 | app.128280563737728.application | Query sent to the model.
+LLM Reply> **Patiala** – 28 °C, sunny.
+2026-11-07 13:01:41,257 | INFO     | aadd4fcce0a54562920baea3f03608d7 | app.128280563737728.application | Input tok; 487, Cached tok: 0
+2026-11-07 13:01:41,258 | DEBUG    | d38077c558604dc984ae4875664ffd02 | app.128280563737728.application | Query sent to the model.
 LLM Reply> Understood—Atlas uses PostgreSQL.
-2026-11-04 03:27:38,255 | INFO     | f15cc7fe5bce49a2816d85ab6ce2c4f9 | app.137784124465056.application | Input tok: 519, Cached tok: 0
-2026-11-04 03:27:38,255 | DEBUG    | dbb3bb748a8a4321b5517b1dccade4e3 | app.137784124465056.application | Query sent to model.
-2026-11-04 03:27:38,956 | INFO     | dbb3bb748a8a4321b5517b1dccade4e3 | app.137784124465056.application | Input tok: 546, Cached tok: 0
-2026-11-04 03:27:38,956 | DEBUG    | dbb3bb748a8a4321b5517b1dccade4e3 | app.137784124465056.application | Executing tool calls ...
-2026-11-04 03:27:38,956 | DEBUG    | dbb3bb748a8a4321b5517b1dccade4e3 | app.137784124465056.application | Executing tool call: list_directory
-2026-11-04 03:27:38,956 | DEBUG    | dbb3bb748a8a4321b5517b1dccade4e3 | app.137784124465056.application | Query sent to model.
-LLM Reply> Contents of `/workspace/atlas`:
+2026-11-07 13:01:41,845 | INFO     | d38077c558604dc984ae4875664ffd02 | app.128280563737728.application | Input tok; 525, Cached tok: 256
+2026-11-07 13:01:41,846 | DEBUG    | 500221cc7d244c5dbeb8c425c7d9e994 | app.128280563737728.application | Query sent to the model.
+2026-11-07 13:01:42,397 | INFO     | 500221cc7d244c5dbeb8c425c7d9e994 | app.128280563737728.application | Input tok; 567, Cached tok: 0
+2026-11-07 13:01:42,397 | DEBUG    | 500221cc7d244c5dbeb8c425c7d9e994 | app.128280563737728.application | Executing tool calls...
+2026-11-07 13:01:42,397 | DEBUG    | 500221cc7d244c5dbeb8c425c7d9e994 | app.128280563737728.application | Executing tool call: list_directory
+2026-11-07 13:01:42,397 | DEBUG    | 500221cc7d244c5dbeb8c425c7d9e994 | app.128280563737728.application | Query sent to the model.
+LLM Reply> Contents of **/workspace/atlas**:
 
 - `main.py`
 - `helpers.py`
 - `constants.py`
-2026-11-04 03:27:39,146 | INFO     | dbb3bb748a8a4321b5517b1dccade4e3 | app.137784124465056.application | Input tok: 610, Cached tok: 0
-2026-11-04 03:27:39,146 | DEBUG    | ddc8c08695344c62a82107b32e35fa02 | app.137784124465056.application | Query sent to model.
-LLM Reply> Got it—Atlas will use Flyway for database migrations.
-2026-11-04 03:27:39,646 | INFO     | ddc8c08695344c62a82107b32e35fa02 | app.137784124465056.application | Input tok: 662, Cached tok: 0
-2026-11-04 03:27:39,647 | DEBUG    | 9638764e5ee6481491a271ce1f412dd8 | app.137784124465056.application | Query sent to model.
-LLM Reply> **Project name:** Atlas  
-**Database:** PostgreSQL  
-**Migration tool:** Flyway
-2026-11-04 03:27:40,271 | INFO     | 9638764e5ee6481491a271ce1f412dd8 | app.137784124465056.application | Input tok: 700, Cached tok: 0
-2026-11-04 03:27:40,272 | DEBUG    | 9c2f4ea6ae6c44f3b95e41638f642ec3 | app.137784124465056.application | Query sent to model.
-LLM Reply> Understood. Orion is a separate project that uses C++ and gRPC. If you need details or help with either Atlas or Orion, justlet me know!
-2026-11-04 03:27:39,448 | INFO     | 9c2f4ea6ae6c44f3b95e41638f642ec3 | app.137784124465056.application | Input tok: 749, Cached tok: 0
-2026-11-04 03:27:39,448 | DEBUG    | da685f8382314a5894938867f3e925ed | app.137784124465056.application | Query sent to model.
-2026-11-04 03:27:42,323 | INFO     | da685f8382314a5894938867f3e925ed | app.137784124465056.application | Input tok: 798, Cached tok: 0
-2026-11-04 03:27:42,323 | DEBUG    | da685f8382314a5894938867f3e925ed | app.137784124465056.application | Executing tool calls ...
-2026-11-04 03:27:42,324 | DEBUG    | da685f8382314a5894938867f3e925ed | app.137784124465056.application | Executing tool call: get_weather
-2026-11-04 03:27:42,324 | DEBUG    | da685f8382314a5894938867f3e925ed | app.137784124465056.application | Query sent to model.
-LLM Reply> **Jaipur – Weather Forecast**
+2026-11-07 13:01:43,058 | INFO     | 500221cc7d244c5dbeb8c425c7d9e994 | app.128280563737728.application | Input tok; 631, Cached tok: 0
+2026-11-07 13:01:43,059 | DEBUG    | 3b20754f308442a2863ad22db49b2c93 | app.128280563737728.application | Query sent to the model.
+LLM Reply> Got it—Atlas will use Flyway for database migrations.Noted! Atlas will use Flyway for its PostgreSQL migrations.
+2026-11-07 13:01:43,332 | INFO     | 3b20754f308442a2863ad22db49b2c93 | app.128280563737728.application | Input tok; 684, Cached tok: 0
+2026-11-07 13:01:43,332 | DEBUG    | 1ec4926df7b44b3c93199de985af2363 | app.128280563737728.application | Query sent to the model.
+LLM Reply> - **Project name:** Atlas  
+- **Database:** PostgreSQL  
+- **Migration tool:** Flyway
+2026-11-07 13:01:43,950 | INFO     | 1ec4926df7b44b3c93199de985af2363 | app.128280563737728.application | Input tok; 749, Cached tok: 0
+2026-11-07 13:01:43,951 | DEBUG    | 7ec99ca5d481432ab6196361d6b49ff0 | app.128280563737728.application | Query sent to the model.
+LLM Reply> Understood—**Orion** uses C++ and gRPC, separate from Atlas.
+2026-11-07 13:01:44,617 | INFO     | 7ec99ca5d481432ab6196361d6b49ff0 | app.128280563737728.application | Input tok; 817, Cached tok: 0
+2026-11-07 13:01:45,396 | DEBUG    | 815efca914b14ba2ac3bab069b9ab415 | app.128280563737728.application | Query sent to the model.
+2026-11-07 13:01:45,685 | INFO     | 815efca914b14ba2ac3bab069b9ab415 | app.128280563737728.application | Input tok; 600, Cached tok: 0
+2026-11-07 13:01:45,685 | DEBUG    | 815efca914b14ba2ac3bab069b9ab415 | app.128280563737728.application | Executing tool calls...
+2026-11-07 13:01:45,685 | DEBUG    | 815efca914b14ba2ac3bab069b9ab415 | app.128280563737728.application | Executing tool call: get_weather
+2026-11-07 13:01:45,686 | DEBUG    | 815efca914b14ba2ac3bab069b9ab415 | app.128280563737728.application | Query sent to the model.
+LLM Reply> The current weather in Jaipur is **28 °C, sunny**.
+2026-11-07 13:01:46,287 | INFO     | 815efca914b14ba2ac3bab069b9ab415 | app.128280563737728.application | Input tok; 646, Cached tok: 256
+2026-11-07 13:01:46,288 | DEBUG    | 1f72184935164dcbbc159ae361934196 | app.128280563737728.application | Query sent to the model.
+LLM Reply> **Atlas**  
+- Language/stack: Spring Boot (Java)  
+- Database: PostgreSQL  
+- Migrations: Flyway  
 
-- **Temperature:** 28 °C  
-- **Condition:** Sunny
-2026-11-04 03:27:43,209 | INFO     | da685f8382314a5894938867f3e925ed | app.137784124465056.application | Input tok: 854, Cached tok: 0
-2026-11-04 03:27:44,844 | DEBUG    | 72687b09d92c41d6af4edb5fa9d43aab | app.137784124465056.application | Query sent to model.
-LLM Reply> **Atlas (Spring Boot)**
-- **Framework:** Spring Boot  
-- **Database:** PostgreSQL (not MySQL)  
-- **Containerization:** Docker  
-- **Migrations:** Flyway  
+**Orion**  
+- Language: C++  
+- Communication: gRPC  
 
-**Orion (C++/gRPC)**
-- Uses C++ as the primary language  
-- Communication layer built with gRPC  
-
-These are the key technical choices for each project.
-2026-11-04 03:27:47,002 | INFO     | 72687b09d92c41d6af4edb5fa9d43aab | app.137784124465056.application | Input tok: 635, Cached tok: 256
-2026-11-04 03:27:47,002 | DEBUG    | fb9fe8a80522468fb5cdf34c10bca7cb | app.137784124465056.application | Query sent to model.
+No overlap between the two projects.
+2026-11-07 13:01:46,639 | INFO     | 1f72184935164dcbbc159ae361934196 | app.128280563737728.application | Input tok; 691, Cached tok: 0
+2026-11-07 13:01:46,639 | DEBUG    | 488d0866a76a40cda9758576ba0b743b | app.128280563737728.application | Query sent to the model.
 LLM Reply> You first asked about the weather in **Patiala**.
-2026-11-04 03:27:47,589 | INFO     | fb9fe8a80522468fb5cdf34c10bca7cb | app.137784124465056.application | Input tok: 736, Cached tok: 0
+2026-11-07 13:01:49,292 | INFO     | 488d0866a76a40cda9758576ba0b743b | app.128280563737728.application | Input tok; 774, Cached tok: 512
 ```
