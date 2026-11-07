@@ -21,13 +21,19 @@ class ApplicationLogger:
     def __init__(
         self,
         log_dir: str | Path = "logs",
-        max_bytes: int = load_env("APP_LOGGER_MAX_BYTES", cast=int, default= 5 * 1024 * 1024),
-        backup_count: int = load_env("APP_BACKUP_COUNT", cast=int, default=3),
+        max_bytes: int | None = None,
+        backup_count: int | None = None,
         console: bool = False,
     ) -> None:
 
         self._closed = False
         self._console = console
+
+        max_bytes = max_bytes or load_env(
+            "APP_LOGGER_MAX_BYTES", cast=int, default= 5 * 1024 * 1024
+        )
+
+        backup_count = backup_count or load_env("APP_BACKUP_COUNT", cast=int, default=3)
 
         self._correlation_id: ContextVar[str] = ContextVar(
             f"correlation_id_{uuid4().hex}", default="-"

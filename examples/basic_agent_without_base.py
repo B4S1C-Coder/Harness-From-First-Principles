@@ -1,10 +1,8 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 # Register tools (importing them, registers them)
 import harness.builtin_tools # noqa: F401
 import json
 
+from dotenv import load_dotenv
 from pathlib import Path
 from collections.abc import Callable
 from harness.prompts import PromptStore
@@ -20,6 +18,8 @@ from openai.types.chat import (
     ChatCompletionToolParam,
     ChatCompletionMessageFunctionToolCall,
 )
+
+load_dotenv()
 
 ROOT = Path(__file__).resolve().parent
 MAX_TURNS_PER_QUERY = 3
