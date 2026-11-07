@@ -23,6 +23,12 @@ class VirtualFileSystemSandbox:
 
     It's best suited only for reading, writing and creating files where we don't require the
     overhead of a real OS level sandbox.
+
+    Important security limitation: path validation followed by a separate filesystem operation is
+    vulnerable to time-of-check/time-of-use (TOCTOU) races.
+
+    It's best suited for a trusted, single user environment and does not provide any security
+    against malicious local processes.
     """
 
     root: Path
@@ -40,7 +46,7 @@ class VirtualFileSystemSandbox:
         # setattr() calls this
         object.__setattr__(self, "root", root)
 
-    def resolve(self, path: str) -> Path:
+    def resolve(self, path: str, *, must_exist: bool=True) -> Path:
         """ Resolve path with respect to root. """
         
         relative = Path(path)
@@ -48,7 +54,7 @@ class VirtualFileSystemSandbox:
         if relative.is_absolute():
             raise exceptions.PermissionDenied("Absolute paths are not permitted")
 
-        resolved = (self.root / relative).resolve(strict=True)
+        resolved = (self.root / relative).resolve(strict=must_exist)
 
         if not resolved.is_relative_to(self.root):
             raise exceptions.PermissionDenied("Path escapes the workspace")
@@ -110,3 +116,76 @@ class VirtualFileSystemSandbox:
             lines.append(f"{permissions} {size:>6} {modified} {name}")
 
         return "\n".join(lines)
+
+    def read_file(self, path: str, *, max_bytes: int = 64 * 1024) -> str:
+        """ Read a UTF-8 text file, truncating at max_bytes. """
+
+        if not self.can_read:
+            raise exceptions.PermissionDenied("Workspace reading is disabled.")
+
+        if max_bytes <= 0:
+            raise exceptions.ValueValidationError("max_bytes must be positive")
+
+        target = self.resolve(path)
+
+        if not target.is_file():
+            raise exceptions.ToolExecutionError("Path is not a regular file.")
+
+        if not os.access(target, os.R_OK):
+            raise exceptions.PermissionDenied("Cannot read this file.")
+
+        with target.open("rb") as file:
+            content = file.read(max_bytes + 1)
+
+        truncated = len(content) > max_bytes
+
+        text = content[:max_bytes].decode("utf-8", errors="replace")
+
+        if truncated:
+            text += "\n\n[TRUNCATED: File exceeds the configured read limit.]"
+
+        return text
+
+    def write_file(self, path: str, content: str, *, overwrite: bool = False) -> None:
+        """ Create a text file, optionally overwriting an existing file. """
+
+        if not self.can_write:
+            raise exceptions.PermissionDenied("Workspace writing is disabled.")
+
+        target = self.resolve(path, must_exist=False)
+
+        if target.exists() and not target.is_file():
+            raise exceptions.ToolExecutionError(
+                "Target exists but is not a regular file."
+            )
+
+        mode = "w" if overwrite else "x"
+
+        with target.open(mode, encoding="utf-8") as file:
+            file.write(content)
+
+    def edit_file(self, path: str, *, start_line: int, end_line: int, content: str) -> None:
+        """ Replace an inclusive range of lines in a text file. """
+
+        if not self.can_read or not self.can_write:
+            raise exceptions.PermissionDenied(
+                "File editing requires both read and write permissions."
+            )
+
+        target = self.resolve(path)
+
+        if not target.is_file():
+            raise exceptions.ToolExecutionError("Path is not a regular file.")
+
+        lines = target.read_text(encoding="utf-8").splitlines(keepends=True)
+
+        if not (1 <= start_line <= end_line <= len(lines)):
+            raise exceptions.ValueValidationError("Invalid line range.")
+
+        # ensure replacement content ends at line boundary
+        if content and not content.endswith("\n"):
+            content += "\n"
+
+        replacement = content.splitlines(keepends=True)
+        lines[start_line - 1:end_line] = replacement
+        target.write_text("".join(lines), encoding="utf-8")

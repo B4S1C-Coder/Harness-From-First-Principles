@@ -93,3 +93,9 @@ class PermissionDenied(ToolExecutionError, PermissionError):
     def __init__(self, message: str) -> None:
         ToolExecutionError.__init__(self, message)
         PermissionError.__init__(self, None, message)
+
+class ValueValidationError(ToolExecutionError, ValueError):
+    """ Raised when a parameter provided, operation result, etc. results in an invalid value. """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message) 
