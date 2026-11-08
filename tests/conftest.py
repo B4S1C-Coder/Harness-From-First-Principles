@@ -5,6 +5,8 @@ from typing import Any
 
 from harness.prompts import PromptStore
 from harness.logger import ApplicationLogger
+from harness.tools import ToolExecutor
+from harness.builtin_tools.dummy_tools import WeatherTool
 
 ### IMPORTANT ###
 # -----------------------------------------------------------------------------------
@@ -53,3 +55,8 @@ def app_logger(log_dir: Path) -> Generator[ApplicationLogger, Any, None]:
 
     yield logger
     logger.close()
+
+@pytest.fixture
+def tool_executor(app_logger: ApplicationLogger) -> ToolExecutor:
+    """ Bind a fresh dummy weather tool to an executor. """
+    return ToolExecutor(app_logger, [WeatherTool()])
