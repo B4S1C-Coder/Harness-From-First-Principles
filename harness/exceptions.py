@@ -26,6 +26,22 @@ class EnvVarCastError(ConfigurationError, ValueError):
     def __init__(self, name: str) -> None:
         super().__init__(f"Environment variable '{name}' has an invalid value or format.")
 
+class UnregisteredToolError(ConfigurationError, ValueError):
+    """
+    Usually raised when a tool not registered in the tool registry is provided to the executor.
+    """
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"Unregistered tool: {name}")
+
+class DuplicateToolError(ConfigurationError, ValueError):
+    """
+    Usually raised when a tool is provided to the executor which it already contain(Matching name).
+    """
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"Duplicate tool: {name}")
+
 class InvalidAPIKeyError(ConfigurationError):
     """ Raised when the API Key is invalid. """
 

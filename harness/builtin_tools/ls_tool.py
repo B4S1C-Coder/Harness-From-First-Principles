@@ -1,3 +1,5 @@
+# Used only for tests, this is a dummy and tool and should not be used.
+
 from ..tools import BaseTool, ToolRegistry
 from typing import Any
 

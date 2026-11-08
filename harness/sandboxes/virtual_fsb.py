@@ -189,3 +189,63 @@ class VirtualFileSystemSandbox:
         replacement = content.splitlines(keepends=True)
         lines[start_line - 1:end_line] = replacement
         target.write_text("".join(lines), encoding="utf-8")
+
+    def read_lines(
+        self,
+        path: str,
+        *,
+        start_line: int,
+        end_line: int,
+        max_bytes: int = 64 * 1024,
+        max_lines: int = 200,
+    ) -> str:
+        """ Read a bounded, inclusive range of lines from a UTF-8 text file. """
+
+        if not self.can_read:
+            raise exceptions.PermissionDenied("Workspace reading is disabled.")
+
+        if not (1 <= start_line <= end_line):
+            raise exceptions.ValueValidationError("Invalid line range.")
+
+        if max_bytes <= 0 or max_lines <= 0:
+            raise exceptions.ValueValidationError("Read limits must be positive.")
+
+        if end_line - start_line + 1 > max_lines:
+            raise exceptions.ValueValidationError(f"Cannot read more than {max_lines} at once.")
+
+        target = self.resolve(path)
+
+        if not target.is_file():
+            raise exceptions.ToolExecutionError("Path is not a regular file.")
+
+        lines: list[str] = []
+        bytes_read = 0
+        truncated = False
+
+        with target.open("rb") as f:
+            for number, line in enumerate(f, start=1):
+                if number < start_line:
+                    continue
+
+                if number > end_line:
+                    break
+
+                remaining = max_bytes - bytes_read
+
+                if len(line) > remaining:
+                    truncated = True
+
+                    if remaining:
+                        text = line[:remaining].decode("utf-8", errors="replace")
+                        lines.append(f"{number}: {text.rstrip(chr(10))}")
+
+                    break
+
+                text = line.decode("utf-8", errors="replace")
+                lines.append(f"{number}: {text.rstrip(chr(10))}")
+                bytes_read += len(line)
+
+        if truncated:
+            lines.append("[TRUNCATED: Read limit exceeded.]")
+
+        return "\n".join(lines)
