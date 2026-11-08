@@ -1,13 +1,32 @@
 import json
 from openai.types.chat import (
     ChatCompletionMessage,
+    ChatCompletionToolParam,
     ChatCompletionMessageFunctionToolCall
 )
+from typing import cast, override
+
 from harness.agents import SynchronousAgentBase
 from harness.exceptions import UnexpectedResponseError
-from harness.tools import ToolRegistry
+from harness.tools import ToolExecutor
+from harness.builtin_tools.dummy_tools import list_directory, WeatherTool
 
-class BasicAgent(SynchronousAgentBase):
+class BasicAgent(SynchronousAgentBase[None]):
+    @override
+    def post_init(self, config: None) -> None:
+        self.executor = ToolExecutor(
+            logger=self.logger,
+            tools=[
+                list_directory(),
+                WeatherTool()
+            ]
+        )
+
+        self.tools = cast(
+            list[ChatCompletionToolParam], list(self.executor.definitions().values())
+        )
+
+    @override
     def handle_message(self, message: ChatCompletionMessage) -> bool:
         content = message.content
 
@@ -21,27 +40,45 @@ class BasicAgent(SynchronousAgentBase):
         # For normal messages end the turn
         return False
 
+    @override
     def handle_tool_call(self, message: ChatCompletionMessage) -> bool:
         self.logger.debug("Executing tool calls...")
 
         for tool_call in message.tool_calls or []:
-
+        
             if not isinstance(tool_call, ChatCompletionMessageFunctionToolCall):
                 self.logger.warning("Unsupported tool call skipped")
+
+                self.messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": json.dumps({
+                        "success": False,
+                        "error": "Unsupported tool call type.",
+                    }),
+                })
+
                 continue
 
             self.logger.debug(f"Executing tool call: {tool_call.function.name}")
 
-            result = ToolRegistry.execute(
-                tool_call.function.name, json.loads(tool_call.function.arguments)
-            )
+            try:
+                args = json.loads(tool_call.function.arguments)
+
+            except json.JSONDecodeError as exc:
+                result = json.dumps({
+                    "success": False,
+                    "error": f"Malformed tool arguments: {exc.msg}"
+                })
+
+            else:
+                result = self.executor.execute(tool_call.function.name, args)
 
             self.messages.append({
                 "role": "tool",
                 "tool_call_id": tool_call.id,
-                "content": json.dumps(result),
+                "content": result
             })
 
-        # For tool calls continue the turn (LLM gets multiple chances to run tools)
         return True
 

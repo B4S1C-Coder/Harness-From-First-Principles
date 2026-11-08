@@ -5,32 +5,42 @@ from openai.types.chat import (
     ChatCompletionMessageFunctionToolCall,
 )
 from pathlib import Path
-from typing import cast
+from typing import cast, override
+from dataclasses import dataclass
 
 from harness.agents import SynchronousAgentBase
 from harness.exceptions import UnexpectedResponseError
-from harness.shortcuts.fs_toolkit import virtual_fs_toolkit
+from harness.shortcuts.fs_toolkit import virtual_fs_toolkit, virtual_readonly_fs_toolkit
 
-class FileSystemAgent(SynchronousAgentBase):
+@dataclass(frozen=True)
+class FSAgentConfig:
+    root: Path
+    readonly: bool = False
+
+class FileSystemAgent(SynchronousAgentBase[FSAgentConfig]):
     """ AI agent with basic file system capabilities. """
 
-    def __init__(self, root: Path, *args, **kwargs) -> None:
-        logger = kwargs.get("logger")
+    @override
+    def post_init(self, config: FSAgentConfig | None) -> None:
+        if config is None:
+            raise ValueError("FSAgentConfig object is required.")
 
-        if logger is None:
-            raise ValueError("Logger must be provided as a keyword argument.")
-        
-        self.executor = virtual_fs_toolkit(root=root, logger=logger)
-        
-        super().__init__(
-            *args,
-            **kwargs,
-            tools=cast(
-                list[ChatCompletionToolParam],
-                list(self.executor.definitions().values())
-            ),
+        toolkit = (
+            virtual_readonly_fs_toolkit
+            if config.readonly
+            else virtual_fs_toolkit
         )
 
+        self.executor = toolkit(
+            root=config.root,
+            logger=self.logger,
+        )
+
+        self.tools = cast(
+            list[ChatCompletionToolParam], list(self.executor.definitions().values())
+        )
+
+    @override
     def handle_message(self, message: ChatCompletionMessage) -> bool:
         """ Handle normal user message. """
         content = message.content
@@ -45,6 +55,7 @@ class FileSystemAgent(SynchronousAgentBase):
         # For normal messages end the turn
         return False
 
+    @override
     def handle_tool_call(self, message: ChatCompletionMessage) -> bool:
         self.logger.debug("Executing tool calls...")
 

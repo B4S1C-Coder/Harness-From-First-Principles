@@ -1,14 +1,10 @@
 from pathlib import Path
-from typing import cast
 from dotenv import load_dotenv
-
-from openai.types.chat import ChatCompletionToolParam
 
 from harness.prompts import PromptStore
 from harness.enums import PromptFamily
 from harness.llms import SyncTextLLMClient
 from harness.logger import ApplicationLogger
-from harness.tools import ToolRegistry
 from .basic_agent import BasicAgent
 
 # Importing tools registers them to the registry
@@ -19,13 +15,6 @@ root = Path(__file__).resolve().parent.parent
 
 # Initialize both the registries (both are independent and not tied to a single agent)
 PromptStore.initialize(root / "data" / "prompts.db")
-ToolRegistry.initialize()
-
-# Construct tool definitions to be given to the agent ( at any time you can change which tools the
-# agent should get ). For a simple example we give it all the built in tools at every turn.
-tools = cast(
-    list[ChatCompletionToolParam], list(ToolRegistry.definitions().values())
-)
 
 logger = ApplicationLogger(root / "data", console=True)
 
@@ -33,7 +22,6 @@ logger = ApplicationLogger(root / "data", console=True)
 agent = BasicAgent(
     client=SyncTextLLMClient(),
     logger=logger,
-    tools=tools,
     system_prompt=PromptStore.load_prompt(PromptFamily.SYSTEM)
 )
 

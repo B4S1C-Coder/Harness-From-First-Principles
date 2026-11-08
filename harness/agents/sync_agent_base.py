@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from collections.abc import Generator
-from typing import cast
+from typing import cast, final
 
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
@@ -15,14 +15,16 @@ from harness.exceptions import UnexpectedResponseError
 from harness.llms import SyncTextLLMClient
 from harness.logger import ApplicationLogger
 
-class SynchronousAgentBase(ABC):
+class SynchronousAgentBase[ConfigT](ABC):
+    @final
     def __init__(
         self,
         client: SyncTextLLMClient,
         logger: ApplicationLogger,
-        tools: list[ChatCompletionToolParam],
         system_prompt: str,
         *,
+        config: ConfigT | None = None,
+        tools: list[ChatCompletionToolParam] | None = None,
         context_budget: int = 8_000,
         compaction_threshold: float = 0.1,
         recent_turns_to_keep: int  = 2,
@@ -30,7 +32,7 @@ class SynchronousAgentBase(ABC):
 
         self.client = client
         self.logger = logger
-        self.tools = tools
+        self.tools = tools if tools is not None else []
 
         self.context_budget = context_budget
         self.compaction_threshold = compaction_threshold
@@ -40,6 +42,13 @@ class SynchronousAgentBase(ABC):
         self.messages: list[ChatCompletionMessageParam] = [
             { "role": "system", "content": system_prompt },
         ]
+
+        self.post_init(config)
+
+    @abstractmethod
+    def post_init(self, config: ConfigT | None) -> None:
+        """ Optional subclass initialization hook"""
+        return None
 
     @abstractmethod
     def handle_message(self, message: ChatCompletionMessage) -> bool:
