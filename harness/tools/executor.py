@@ -32,7 +32,7 @@ class ToolExecutor:
         self._limits = limits or ToolExecutionLimits()
         self._logger = logger
 
-        registered = ToolRegistry.definitions()
+        registered = ToolRegistry.class_definitions()
 
         # seems unncessary, since these classes are controlled by the programmer, it is what it is
         for tool in tools:

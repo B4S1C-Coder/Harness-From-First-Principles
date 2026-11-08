@@ -10,16 +10,17 @@ class BaseTool(ABC):
     def driver(self, args: dict[str, Any]) -> dict[str, Any]:
         """ Executes the tool. """
         ...
-    
-    def definition(self) -> dict[str, Any]:
+
+    @classmethod
+    def definition(cls) -> dict[str, Any]:
         """ Returns the tool definition based on OpenAI Format. """
 
         return {
             "type": "function",
             "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": self.parameters,
+                "name": cls.name,
+                "description": cls.description,
+                "parameters": cls.parameters,
                 "strict": True,
             },
         }

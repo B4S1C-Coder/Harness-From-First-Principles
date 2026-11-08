@@ -34,6 +34,15 @@ class ToolRegistry:
             name: tool_cls()
             for name, tool_cls in cls._tool_classes.items()
         }
+
+    @classmethod
+    def class_definitions(cls) -> dict[str, dict[str, Any]]:
+        """ Return defns directly without any bs. This is for migrating to new arch. """
+
+        return {
+            name: tool_cls.definition()
+            for name, tool_cls in cls._tool_classes.items()
+        }
     
     @classmethod
     def execute(

@@ -127,7 +127,7 @@ class WriteFileTool(VirtualFSTool):
                 "default": False,
             },
         },
-        "required": ["path", "content"],
+        "required": ["path", "content", "overwrite"],
         "additionalProperties": False,
     }
 
