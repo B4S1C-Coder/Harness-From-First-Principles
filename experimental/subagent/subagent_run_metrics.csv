@@ -1,0 +1,7 @@
+request_order,user_turn,agent,model,timestamp_sent,timestamp_completed,input_tokens,cached_tokens,request_wall_time_s,called_by_review_tool
+1,1,Coordinator (120B),openai/gpt-oss-120b,2026-11-11T17:16:32.371,2026-11-11T17:16:33.644,507,256,1.273,False
+2,1,Reviewer (20B),openai/gpt-oss-20b,2026-11-11T17:16:33.644,2026-11-11T17:16:34.918,394,0,1.274,True
+3,1,Coordinator (120B),openai/gpt-oss-120b,2026-11-11T17:16:34.918,2026-11-11T17:16:38.412,1639,0,3.494,False
+4,2,Coordinator (120B),openai/gpt-oss-120b,2026-11-11T17:17:08.659,2026-11-11T17:17:10.207,3006,0,1.548,False
+5,2,Reviewer (20B),openai/gpt-oss-20b,2026-11-11T17:17:10.207,2026-11-11T17:17:12.036,1416,0,1.829,True
+6,2,Coordinator (120B),openai/gpt-oss-120b,2026-11-11T17:17:12.036,2026-11-11T17:17:13.517,4229,0,1.481,False
