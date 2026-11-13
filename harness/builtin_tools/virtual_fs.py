@@ -1,12 +1,20 @@
 from typing import Any
 from ..tools import BaseTool, ToolRegistry
 from ..sandboxes import VirtualFileSystemSandbox
+from ..limits import VirtualFSReadLimits
+from ..exceptions import ValueValidationError
 
 class VirtualFSTool(BaseTool):
     """ Shared dependency for virtual file system tools. """
 
-    def __init__(self, sandbox: VirtualFileSystemSandbox) -> None:
+    def __init__(
+            self,
+            sandbox: VirtualFileSystemSandbox,
+            *,
+            limit: VirtualFSReadLimits | None = None,
+        ) -> None:
         self.sandbox = sandbox
+        self.limit = limit or VirtualFSReadLimits()
 
 @ToolRegistry.register
 class ListDirectoryTool(VirtualFSTool):
@@ -58,7 +66,7 @@ class ReadFileTool(VirtualFSTool):
 
         return {
             "path": path,
-            "content": self.sandbox.read_file(path)
+            "content": self.sandbox.read_file(path, max_bytes=self.limit.max_bytes)
         }
 
 @ToolRegistry.register
@@ -66,7 +74,7 @@ class ReadLinesTool(VirtualFSTool):
     name = "read_lines"
     description = (
         "Read a specific inclusive range of lines from a workspace file. "
-        "Line numbers start at 1. Maximum 200 lines per call."
+        "Line numbers start at 1. The tool will inform in case of truncated output."
     )
 
     parameters = {
@@ -92,13 +100,27 @@ class ReadLinesTool(VirtualFSTool):
     }
 
     def driver(self, args: dict[str, Any]) -> dict[str, Any]:
-        path, start_line, end_line = args["path"], args["start_line"], args["end_line"]
+        path, start_line, req_end_line = args["path"], args["start_line"], args["end_line"]
+
+        if req_end_line < start_line:
+            raise ValueValidationError("end_line must be >= start_line.")
+
+        end_line = min(
+            req_end_line, start_line + self.limit.max_lines - 1
+        )
 
         return {
             "path": path,
             "start_line": start_line,
             "end_line": end_line,
-            "content": self.sandbox.read_lines(path, start_line=start_line, end_line=end_line),
+            "truncated_range": end_line < req_end_line,
+            "content": self.sandbox.read_lines(
+                path,
+                start_line=start_line,
+                end_line=end_line,
+                max_bytes=self.limit.max_bytes,
+                max_lines=self.limit.max_lines,
+            ),
         }
 
 @ToolRegistry.register
