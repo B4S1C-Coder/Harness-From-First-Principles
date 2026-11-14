@@ -101,6 +101,7 @@ try:
         logger=logger,
         system_prompt=PromptStore.load_prompt("experimental.vfsb_subagent.sub.system"),
         context_budget=8_000,
+        enable_context_check=False,  # Temporarily bypass the byte-based estimate.
         compaction_threshold=0.75,
         recent_turns_to_keep=1,
         compaction=tool_aware_compaction,
@@ -119,6 +120,7 @@ try:
         logger=logger,
         system_prompt=PromptStore.load_prompt("experimental.vfsb_subagent.main.system"),
         context_budget=8_000,
+        enable_context_check=False,
         compaction_threshold=0.75,
         recent_turns_to_keep=1,
         compaction=tool_aware_compaction,

@@ -12,7 +12,9 @@ from experimental.vfsb_subagent.query_helper import QueryHelper
 class LogOverviewTool(BaseTool):
     name = "log_overview"
     description = "Summarize log counts and time ranges by file and level. Results are bounded."
-    parameters = {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
+    # Groq can treat an empty properties map as missing when required is present.
+    # Omitting the empty required list preserves the zero-argument schema.
+    parameters = {"type": "object", "properties": {}, "additionalProperties": False}
 
     def __init__(self, backend: SQLiteLogs) -> None:
         self.backend = backend

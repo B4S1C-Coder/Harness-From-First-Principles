@@ -31,6 +31,7 @@ class SynchronousAgentBase[ConfigT](ABC):
         context_budget: int = 8_000,
         compaction_threshold: float = 0.8,
         recent_turns_to_keep: int = 2,
+        enable_context_check: bool = True,
         compaction: Callable[
             [list[ChatCompletionMessageParam], SyncTextLLMClient, int],
             list[ChatCompletionMessageParam],
@@ -38,6 +39,7 @@ class SynchronousAgentBase[ConfigT](ABC):
     ) -> None:
 
         self.compaction = compaction
+        self.enable_context_check = enable_context_check
         self.client = client
         self.logger = logger
         self.tools = tools if tools is not None else []
@@ -104,7 +106,7 @@ class SynchronousAgentBase[ConfigT](ABC):
             )
 
         threshold = self.context_budget * self.compaction_threshold
-        if request_size() >= threshold:
+        if self.enable_context_check and request_size() >= threshold:
             try:
                 self.messages = self.compaction(
                     self.messages, self.client, self.recent_turns_to_keep

@@ -147,3 +147,28 @@ def test_tool_handler_result_and_tool_schema_budget(app_logger) -> None:
     with pytest.raises(UnexpectedResponseError):
         blocked.step()
     assert not blocked.client.calls
+
+
+def test_disabled_context_check_preserves_history_and_final_report(app_logger) -> None:
+    client = FakeClient("investigation conclusion")
+    compactions = []
+
+    def compact(messages: list, llm_client: FakeClient, keep: int) -> list:
+        compactions.append(True)
+        return messages
+
+    agent = Agent(
+        client,
+        app_logger,
+        "system",
+        context_budget=1,
+        enable_context_check=False,
+        compaction=compact,
+    )
+    agent.messages = history()
+    original = list(agent.messages)
+    assert agent.step() is False
+    assert client.calls == [([], original)]
+    assert not compactions
+    assert agent.messages[:-1] == original
+    assert agent.messages[-1]["content"] == "investigation conclusion"
