@@ -66,3 +66,7 @@ Run the tests and lint before saying a task is done.
 - Don't touch `refs/` unless asked.
 - Run only the tests for the package you changed (`uv run pytest tests/<path> -v`), then the full suite once at the end.
 - Make the smallest change that satisfies the task. Ask before refactoring or touching unrelated files.
+
+## Current Working Memory
+
+Read [MEMORY.MD](./MEMORY.MD) before continuing the current investigation-harness work. It records session findings, decision rationale, known failures, current implementation state, and proposals that have not been implemented. Treat it as temporary working memory, not permanent requirements or authorization to implement pending ideas. It may be cleared or replaced when the work moves to a different topic; follow the user's latest instructions and verify the current code.
