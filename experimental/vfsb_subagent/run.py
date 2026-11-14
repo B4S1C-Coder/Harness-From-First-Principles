@@ -2,14 +2,20 @@ from dotenv import load_dotenv
 from pathlib import Path
 from typing import Any
 from harness.shortcuts.generic_scmt import SCMTTAgent, SCMTTConfig
-from harness.builtin_tools.virtual_fs import ReadFileTool, ReadLinesTool, ListDirectoryTool
-from harness.sandboxes import VirtualFileSystemSandbox
+from harness.compaction import tool_aware_compaction
+from experimental.vfsb_subagent.log_backend import SQLiteLogs
+from experimental.vfsb_subagent.query_helper import QueryHelper
+from experimental.vfsb_subagent.log_tools import (
+    LogOverviewTool,
+    SearchLogsTool,
+    NearbyLogsTool,
+    AdvancedLogAnalysisTool,
+)
 from harness.prompts import PromptStore
 from harness.llms import SyncTextLLMClient
 from harness.logger import ApplicationLogger
 from harness.tools import ToolRegistry, BaseTool
 from harness.exceptions import ToolExecutionError, UnexpectedResponseError
-from harness.limits import VirtualFSReadLimits
 
 load_dotenv()
 
@@ -19,19 +25,8 @@ MAIN_AGENT_MAX_STPES = 4
 
 PromptStore.initialize(PROMPT_ROOT / "prompts.db")
 
-readonly_workspace = VirtualFileSystemSandbox(
-    root=ROOT / "data" / "workspace",
-    can_read=True,
-    can_write=False,
-    can_execute=False
-)
-
-read_limits = VirtualFSReadLimits(
-    max_bytes=4 * 1024,
-    max_lines=30
-)
-
 logger = ApplicationLogger(ROOT / "data", console=True)
+
 
 @ToolRegistry.register
 class LogAgentTool(BaseTool):
@@ -45,7 +40,7 @@ class LogAgentTool(BaseTool):
         "Use this when diagnosing incidents or when log evidence "
         "is needed to verify a hypothesis."
     )
-    
+
     parameters = {
         "type": "object",
         "properties": {
@@ -85,46 +80,51 @@ class LogAgentTool(BaseTool):
         message = self.agent.messages[-1]
 
         if message["role"] != "assistant":
-            raise UnexpectedResponseError(
-                "Log analyzer did not produce a final response."
-            )
+            raise UnexpectedResponseError("Log analyzer did not produce a final response.")
 
         content = message.get("content")
 
         if not isinstance(content, str) or not content:
-            raise UnexpectedResponseError(
-                "Log analyzer returned an empty response."
-            )
+            raise UnexpectedResponseError("Log analyzer returned an empty response.")
 
         return {
             "analysis": content,
         }
 
-sub_agent = SCMTTAgent(
-    client=SyncTextLLMClient(model="openai/gpt-oss-20b"),
-    logger=logger,
-    system_prompt=PromptStore.load_prompt("experimental.vfsb_subagent.sub.system"),
-    compaction_threshold=0.8,
-    recent_turns_to_keep=4,
-    config=SCMTTConfig(tools=(
-        ReadFileTool(readonly_workspace, limit=read_limits),
-        ReadLinesTool(readonly_workspace, limit=read_limits),
-        ListDirectoryTool(readonly_workspace),
-    )),
-)
 
-main_agent = SCMTTAgent(
-    client=SyncTextLLMClient(model="openai/gpt-oss-120b"),
-    logger=logger,
-    system_prompt=PromptStore.load_prompt("experimental.vfsb_subagent.main.system"),
-    compaction_threshold=0.8,
-    recent_turns_to_keep=4,
-    config=SCMTTConfig(tools=(
-        LogAgentTool(sub_agent),
-    ))
-)
-
+backend = SQLiteLogs(ROOT / "data" / "workspace")
 try:
+    query_helper = QueryHelper(backend, SyncTextLLMClient(model="openai/gpt-oss-20b"))
+
+    sub_agent = SCMTTAgent(
+        client=SyncTextLLMClient(model="openai/gpt-oss-20b"),
+        logger=logger,
+        system_prompt=PromptStore.load_prompt("experimental.vfsb_subagent.sub.system"),
+        context_budget=8_000,
+        compaction_threshold=0.75,
+        recent_turns_to_keep=1,
+        compaction=tool_aware_compaction,
+        config=SCMTTConfig(
+            tools=(
+                LogOverviewTool(backend),
+                SearchLogsTool(backend),
+                NearbyLogsTool(backend),
+                AdvancedLogAnalysisTool(query_helper),
+            )
+        ),
+    )
+
+    main_agent = SCMTTAgent(
+        client=SyncTextLLMClient(model="openai/gpt-oss-120b"),
+        logger=logger,
+        system_prompt=PromptStore.load_prompt("experimental.vfsb_subagent.main.system"),
+        context_budget=8_000,
+        compaction_threshold=0.75,
+        recent_turns_to_keep=1,
+        compaction=tool_aware_compaction,
+        config=SCMTTConfig(tools=(LogAgentTool(sub_agent),)),
+    )
+
     while True:
         q = input("User> ").strip()
 
@@ -141,5 +141,6 @@ try:
                 if not main_agent.step():
                     break
 finally:
+    backend.close()
     logger.close()
     PromptStore.close()
