@@ -7,7 +7,7 @@
 ## Public interface
 
 - Export generic `SynchronousAgentBase[ConfigT]` from `harness.agents`; `__init__` is marked `@final`.
-- Constructor: `SynchronousAgentBase(client: SyncTextLLMClient, logger: ApplicationLogger, system_prompt: str, *, config: ConfigT | None = None, tools: list[ChatCompletionToolParam] | None = None, context_budget: int = 8_000, compaction_threshold: float = 0.8, recent_turns_to_keep: int = 2, enable_context_check: bool = True, compaction: Callable[[list[ChatCompletionMessageParam], SyncTextLLMClient, int], list[ChatCompletionMessageParam]] = naive_compaction) -> None`.
+- Constructor: `SynchronousAgentBase(client: SyncTextLLMClient, logger: ApplicationLogger, system_prompt: str, *, config: ConfigT | None = None, tools: list[ChatCompletionToolParam] | None = None, context_budget: int = 8_000, compaction_threshold: float = 0.8, recent_turns_to_keep: int = 2, enable_context_check: bool = True, max_tool_turns: int | None = None, compaction: Callable[[list[ChatCompletionMessageParam], SyncTextLLMClient, int], list[ChatCompletionMessageParam]] = naive_compaction) -> None`.
 - Abstract handlers: `handle_message(self, message: ChatCompletionMessage) -> bool`, `handle_tool_call(self, message: ChatCompletionMessage) -> bool`.
 - Methods: `add_user_message(self, content: str) -> None`, `step(self) -> bool`, `reset(self) -> None`.
 - Context manager: `turn(self) -> Generator[None]` establishes a logger correlation scope.
@@ -17,7 +17,9 @@
 
 - Initialization stores dependencies and settings, seeds the system message, then calls `post_init(config)`.
 - Subclasses implement all three abstract hooks; handler results mean continue (`True`) or end (`False`) the turn.
-- `step()` calls `client.generate_next(self.tools, self.messages)` and uses the first response choice.
+- `step()` uses the first response choice. Normally it sends the configured tools and history.
+- Optional `max_tool_turns` counts assistant tool-call batches per user request, including failed tool executions. It defaults to unlimited; negative values raise `ValueValidationError`. A nonempty `add_user_message` or `reset` resets the counter.
+- After that many tool turns, the next `step()` sends no tools and a temporary system instruction to summarize existing findings and uncertainty. It rejects empty summaries or tool calls before dispatch, preserves the final report in history, and returns `False` regardless of handler return value. No additional model call is made within that step. Callers must reserve one step for this final summary.
 - The client must return `(response, input_tokens, cached_tokens)`; token counts are logged.
 - No choices raises `UnexpectedResponseError` with the agent class name.
 - Append the serialized assistant message before dispatching to the tool-call or normal handler.

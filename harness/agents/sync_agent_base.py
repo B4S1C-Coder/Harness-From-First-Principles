@@ -13,7 +13,7 @@ from openai.types.chat import (
 )
 
 from harness.compaction import naive_compaction
-from harness.exceptions import UnexpectedResponseError
+from harness.exceptions import UnexpectedResponseError, ValueValidationError
 from harness.llms import SyncTextLLMClient
 from harness.logger import ApplicationLogger
 
@@ -32,12 +32,17 @@ class SynchronousAgentBase[ConfigT](ABC):
         compaction_threshold: float = 0.8,
         recent_turns_to_keep: int = 2,
         enable_context_check: bool = True,
+        max_tool_turns: int | None = None,
         compaction: Callable[
             [list[ChatCompletionMessageParam], SyncTextLLMClient, int],
             list[ChatCompletionMessageParam],
         ] = naive_compaction,
     ) -> None:
 
+        if max_tool_turns is not None and max_tool_turns < 0:
+            raise ValueValidationError("max_tool_turns must be nonnegative or None.")
+        self.max_tool_turns = max_tool_turns
+        self._tool_turns = 0
         self.compaction = compaction
         self.enable_context_check = enable_context_check
         self.client = client
@@ -89,6 +94,7 @@ class SynchronousAgentBase[ConfigT](ABC):
     def add_user_message(self, content: str) -> None:
         """Add user input to conversation history."""
         if content:
+            self._tool_turns = 0
             self.messages.append({"role": "user", "content": content})
 
     def step(self) -> bool:
@@ -97,11 +103,29 @@ class SynchronousAgentBase[ConfigT](ABC):
         Returns whether the current turn should continue.
         """
 
+        summarize = self.max_tool_turns is not None and self._tool_turns >= self.max_tool_turns
+        request_tools = [] if summarize else self.tools
+
+        def request_messages() -> list[ChatCompletionMessageParam]:
+            if not summarize:
+                return self.messages
+            return [
+                *self.messages,
+                {
+                    "role": "system",
+                    "content": "The investigation tool-turn budget is exhausted. Return a final "
+                    "summary now using only the evidence already gathered. Include findings and "
+                    "source references, supported conclusions or hypotheses, uncertainty, and "
+                    "unresolved questions. If no conclusion is supported, say so explicitly. "
+                    "Do not request tools or invent evidence.",
+                },
+            ]
+
         # One UTF-8 byte per estimated token is intentionally conservative.
         def request_size() -> int:
             return len(
                 json.dumps(
-                    {"messages": self.messages, "tools": self.tools}, ensure_ascii=False
+                    {"messages": request_messages(), "tools": request_tools}, ensure_ascii=False
                 ).encode("utf-8")
             )
 
@@ -119,8 +143,14 @@ class SynchronousAgentBase[ConfigT](ABC):
                 )
 
         self.logger.debug("Query sent to the model.")
+        if summarize:
+            self.logger.debug(
+                "Tool-turn budget exhausted (%s); requesting final summary.", self.max_tool_turns
+            )
 
-        response, input_tokens, cached_tokens = self.client.generate_next(self.tools, self.messages)
+        response, input_tokens, cached_tokens = self.client.generate_next(
+            request_tools, request_messages()
+        )
 
         self.logger.info(f"Input tok; {input_tokens}, Cached tok: {cached_tokens}")
 
@@ -130,6 +160,10 @@ class SynchronousAgentBase[ConfigT](ABC):
             )
 
         assistant_message = response.choices[0].message
+        if summarize and (assistant_message.tool_calls or not assistant_message.content):
+            raise UnexpectedResponseError(
+                self.__class__.__qualname__, "Expected a nonempty final summary without tool calls."
+            )
 
         self.messages.append(
             cast(
@@ -138,12 +172,14 @@ class SynchronousAgentBase[ConfigT](ABC):
         )
 
         if assistant_message.tool_calls:
+            self._tool_turns += 1
             should_continue = self.handle_tool_call(assistant_message)
         else:
             should_continue = self.handle_message(assistant_message)
 
-        return should_continue
+        return False if summarize else should_continue
 
     def reset(self) -> None:
         """Reset conversation history while retaining agent configuration."""
         self.messages = [{"role": "system", "content": self.system_prompt}]
+        self._tool_turns = 0

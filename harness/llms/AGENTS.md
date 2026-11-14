@@ -14,7 +14,7 @@
 ## Contracts
 - Constructor arguments override environment values; only `None` falls back to `MODEL`, `API_KEY`, or `MODEL_URL`, respectively.
 - Missing required environment values raise `harness.exceptions.EnvVarNotSetError`.
-- Callers supply OpenAI message and tool parameter lists; generation sends them with automatic tool choice.
+- Callers supply OpenAI message and tool parameter lists; generation sends nonempty tools with automatic tool choice. For an empty tools list, omit tool definitions and explicitly send `tool_choice="none"` to disable tool calling.
 - Generation returns the full completion, total prompt tokens, and cached prompt tokens (zero when cache details are absent).
 - Missing usage raises `UnexpectedResponseError`; `dangerously_ignore_usage=True` returns the completion with both counts zero.
 - Connection checks and generation make provider requests and translate common SDK errors (authentication, rate limit, timeout, connection, other status errors) into `InvalidAPIKeyError`, `RateLimitedError`, `TimeoutError`, `ConnectionError`, and `UnexpectedResponseError` from `harness.exceptions`.

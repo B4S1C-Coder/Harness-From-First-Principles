@@ -85,8 +85,8 @@ class SyncTextLLMClient:
         response = self.__client.chat.completions.create(
             model=self.model,
             messages=messages,
-            tools=tools,
-            tool_choice="auto",
+            tools=tools if tools else openai.omit,
+            tool_choice="auto" if tools else "none",
         )
         
         usage = response.usage

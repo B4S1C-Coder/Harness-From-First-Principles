@@ -58,7 +58,8 @@ class LogAgentTool(BaseTool):
         "additionalProperties": False,
     }
 
-    MAX_STEPS = 12
+    MAX_TOOL_TURNS = 6
+    MAX_STEPS = MAX_TOOL_TURNS + 1  # Reserve one tools-disabled final summary.
 
     def __init__(self, agent: SCMTTAgent) -> None:
         self.agent = agent
@@ -102,6 +103,7 @@ try:
         system_prompt=PromptStore.load_prompt("experimental.vfsb_subagent.sub.system"),
         context_budget=8_000,
         enable_context_check=False,  # Temporarily bypass the byte-based estimate.
+        max_tool_turns=LogAgentTool.MAX_TOOL_TURNS,
         compaction_threshold=0.75,
         recent_turns_to_keep=1,
         compaction=tool_aware_compaction,
