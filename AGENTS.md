@@ -50,7 +50,7 @@ Run the tests and lint before saying a task is done.
 - Log through `harness/logger.py`, never `print`.
 - Keep modules small; follow the style of neighbouring files.
 - Each folder in `examples/` and `experimental/` follow a specific structure, respect and follow that structure whenever working in those directories.
-- Use PEP 695 syntax `(def f[T](x: T)`, `class Box[T])`; never import `TypeVar`/`Generic`
+- Use PEP 695 syntax (`def f[T](x: T)`, `class Box[T]`); never import `TypeVar`/`Generic`
 - `examples/basic_agent_without_base.py` is legacy and broken. Don't fix, refactor, or import it. Ignore it when reporting lint or test results.
 - `experimental/vfsb_subagent/` has a known context-overflow problem. Don't try to fix it unless asked.
 - The framework is synchronous. Don't introduce async/await.
@@ -58,7 +58,7 @@ Run the tests and lint before saying a task is done.
 
 ## Rules
 - Don't change a public interface without updating that package's `AGENTS.md` in the same change.
-- Never run `git add` or `git commit` or `git push` or change branches unless explicitly told to do so.
+- Never run `git add` or `git commit` or `git push` or change branches unless explicitly told to do so. Other non-destructive commands are allowed.
 - Add or update tests for every behaviour change. Keep existing tests green.
 - Don't add dependencies without asking.
 - Never read, print or commit `.env`. Use `.env.example` for new variables.
