@@ -60,7 +60,7 @@ Run the tests and lint before saying a task is done.
 - Don't change a public interface without updating that package's `AGENTS.md` in the same change.
 - Never run `git add` or `git commit` or `git push` or change branches unless explicitly told to do so. Other non-destructive commands are allowed.
 - Add or update tests for every behaviour change. Keep existing tests green.
-- Exception: `harness/agents` has no tests for now (see its AGENTS.md). Don't create tests that need a real LLM.
+- Exception: `harness/agents` and `harness/llms` has no tests for now (see its AGENTS.md). Don't create tests that need a real LLM.
 - Don't add dependencies without asking.
 - Never read, print or commit `.env`. Use `.env.example` for new variables.
 - Don't touch `refs/` unless asked.
