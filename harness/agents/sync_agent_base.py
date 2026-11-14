@@ -26,7 +26,7 @@ class SynchronousAgentBase[ConfigT](ABC):
         config: ConfigT | None = None,
         tools: list[ChatCompletionToolParam] | None = None,
         context_budget: int = 8_000,
-        compaction_threshold: float = 0.1,
+        compaction_threshold: float = 0.8,
         recent_turns_to_keep: int  = 2,
     ) -> None:
 
