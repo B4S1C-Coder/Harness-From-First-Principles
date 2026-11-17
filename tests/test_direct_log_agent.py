@@ -37,7 +37,12 @@ def test_main_agent_owns_evidence_and_helper_only_receives_query_request(
                     {
                         "id": "overview",
                         "type": "function",
-                        "function": {"name": "log_overview", "arguments": "{}"},
+                        "function": {
+                            "name": "incident_digest",
+                            "arguments": json.dumps(
+                                dict.fromkeys(["start", "end", "level", "filename"])
+                            ),
+                        },
                     }
                 ],
             ),
@@ -67,7 +72,7 @@ def test_main_agent_owns_evidence_and_helper_only_receives_query_request(
     try:
         agent = build_agent(backend, app_logger, main_client, query_client, "Own the investigation")
         assert {tool["function"]["name"] for tool in agent.tools} == {
-            "log_overview",
+            "incident_digest",
             "search_logs",
             "nearby_logs",
             "advanced_log_analysis",

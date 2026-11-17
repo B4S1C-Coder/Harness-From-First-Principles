@@ -7,7 +7,7 @@ from harness.compaction import tool_aware_compaction
 from experimental.vfsb_subagent.log_backend import SQLiteLogs
 from experimental.vfsb_subagent.query_helper import QueryHelper
 from experimental.vfsb_subagent.log_tools import (
-    LogOverviewTool,
+    IncidentDigestTool,
     SearchLogsTool,
     NearbyLogsTool,
     AdvancedLogAnalysisTool,
@@ -43,7 +43,7 @@ def build_agent(
         compaction=tool_aware_compaction,
         config=SCMTTConfig(
             tools=(
-                LogOverviewTool(backend),
+                IncidentDigestTool(backend),
                 SearchLogsTool(backend),
                 NearbyLogsTool(backend),
                 AdvancedLogAnalysisTool(query_helper),
@@ -62,8 +62,9 @@ def main() -> None:
         agent = build_agent(
             backend,
             logger,
-            SyncTextLLMClient(model="openai/gpt-oss-120b"),
-            SyncTextLLMClient(model="openai/gpt-oss-20b"),
+            # Groq's free tier caps tokens per minute (8k); wait out 429s instead of crashing.
+            SyncTextLLMClient(model="openai/gpt-oss-120b", max_retries=8),
+            SyncTextLLMClient(model="openai/gpt-oss-20b", max_retries=8),
             PromptStore.load_prompt("experimental.vfsb_subagent.main.system"),
         )
         while True:
