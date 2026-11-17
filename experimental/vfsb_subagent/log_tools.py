@@ -90,12 +90,13 @@ class AdvancedLogAnalysisTool(BaseTool):
 class IncidentDigestTool(BaseTool):
     name = "incident_digest"
     description = (
-        "START HERE. Deterministic map of the logs: non-INFO lines grouped by message template "
-        "(numbers, ids, IPs masked). Returns corpus size and time range, line counts by level, "
-        "and per template: count, files, first/last timestamp, first_ref (file:line, for "
-        "nearby_logs) and the template. Rows are in order of first appearance; counts show "
-        "volume, not causality. If templates were omitted, narrow with start/end/filename or "
-        "level. Null disables a filter."
+        "START HERE. Deterministic map of the logs: non-INFO lines grouped into message types "
+        "(numbers, ids, IPs ignored when grouping). Returns corpus size and time range, line "
+        "counts by level, and per group: count, files, first/last timestamp, first_ref "
+        "(file:line, for nearby_logs) and message (verbatim text of the FIRST occurrence; later "
+        "ones may differ in numbers, ids or hosts). Rows are in order of first appearance; "
+        "counts show volume, not causality. If groups were omitted, narrow with "
+        "start/end/filename or level. Null disables a filter."
     )
     parameters = {
         "type": "object",
