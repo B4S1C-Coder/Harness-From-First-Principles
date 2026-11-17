@@ -7,7 +7,7 @@ from harness.compaction import tool_aware_compaction
 from experimental.vfsb_subagent.log_backend import SQLiteLogs
 from experimental.vfsb_subagent.query_helper import QueryHelper
 from experimental.vfsb_subagent.log_tools import (
-    LogOverviewTool,
+    IncidentDigestTool,
     SearchLogsTool,
     NearbyLogsTool,
     AdvancedLogAnalysisTool,
@@ -43,7 +43,7 @@ def build_agent(
         compaction=tool_aware_compaction,
         config=SCMTTConfig(
             tools=(
-                LogOverviewTool(backend),
+                IncidentDigestTool(backend),
                 SearchLogsTool(backend),
                 NearbyLogsTool(backend),
                 AdvancedLogAnalysisTool(query_helper),

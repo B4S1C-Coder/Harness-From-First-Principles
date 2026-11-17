@@ -84,3 +84,30 @@ class AdvancedLogAnalysisTool(BaseTool):
 
     def driver(self, args: dict[str, Any]) -> dict[str, Any]:
         return self.helper.analyze(args["request"])
+
+
+@ToolRegistry.register
+class IncidentDigestTool(BaseTool):
+    name = "incident_digest"
+    description = (
+        "START HERE. Deterministic map of the logs: non-INFO lines grouped by message template "
+        "(numbers, ids, IPs masked). Returns corpus size and time range, line counts by level, "
+        "and per template: count, files, first/last timestamp, first_ref (file:line, for "
+        "nearby_logs) and the template. Rows are in order of first appearance; counts show "
+        "volume, not causality. If templates were omitted, narrow with start/end/filename or "
+        "level. Null disables a filter."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            key: {"type": ["string", "null"]} for key in ("start", "end", "level", "filename")
+        },
+        "required": ["start", "end", "level", "filename"],
+        "additionalProperties": False,
+    }
+
+    def __init__(self, backend: SQLiteLogs) -> None:
+        self.backend = backend
+
+    def driver(self, args: dict[str, Any]) -> dict[str, Any]:
+        return self.backend.digest(**args)

@@ -10,9 +10,13 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from harness.exceptions import ToolExecutionError
+from experimental.vfsb_subagent.log_digest import QUIET_LEVELS, build_digest, normalize
 
 MAX_BYTES = 4096
 MAX_ROWS = 20
+# The digest scans every non-INFO line, so it gets a larger time budget than ad-hoc queries.
+DIGEST_TIMEOUT_SECONDS = 10.0
+MAX_DIGEST_GROUPS = 5000
 LOG_PATTERN = re.compile(
     r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d[,\.]\d+) (\w+) \[(.*?)\] ([^:]+): (.*)$"
 )
@@ -51,13 +55,15 @@ class SQLiteLogs:
         "logs(filename TEXT, line INTEGER, raw TEXT, timestamp TEXT, level"
         " TEXT, thread TEXT, logger TEXT, message TEXT). timestamp format "
         "YYYY-MM-DD HH:MM:SS,mmm; line is 1-based. Unparsed fields are NUL"
-        "L."
+        "L. SQL function tmpl(message) masks numbers/ids/IPs so similar mes"
+        "sages share one value; use it to GROUP BY message type."
     )
 
     def __init__(self, workspace: Path, timeout_seconds: float = 0.2) -> None:
         self.connection = sqlite3.connect(":memory:")
         self.timeout_seconds = timeout_seconds
         try:
+            self.connection.create_function("tmpl", 1, normalize, deterministic=True)
             self.connection.execute(
                 
                     "CREATE TABLE logs(filename TEXT, line INTEGER, raw TEXT, timestam"
@@ -165,6 +171,76 @@ class SQLiteLogs:
             + (" AND ".join(clauses) or "1")
             + " ORDER BY timestamp, filename, line",
             tuple(parameters),
+        )
+
+    def digest(
+        self,
+        start: str | None = None,
+        end: str | None = None,
+        level: str | None = None,
+        filename: str | None = None,
+    ) -> dict[str, Any]:
+        """Group non-INFO lines (or one `level`) by masked message template; see log_digest."""
+        scope, parameters, filters = [], [], {}
+        for key, column, operator, value in (
+            ("start", "timestamp", ">=", start),
+            ("end", "timestamp", "<=", end),
+            ("filename", "filename", "=", filename),
+        ):
+            if value is not None:
+                scope.append(f"{column} {operator} ?")
+                parameters.append(value)
+                filters[key] = value
+        scope_where = " AND ".join(scope) or "1"
+        if level is not None:
+            level_where, level_parameters = "level = ?", [level]
+            filters["level"] = level
+        else:
+            level_where = "level IS NOT NULL AND level NOT IN (?, ?, ?)"
+            level_parameters = list(QUIET_LEVELS)
+
+        deadline = time.monotonic() + DIGEST_TIMEOUT_SECONDS
+        self.connection.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
+        cursor = self.connection.cursor()
+        try:
+            total, files, first, last = cursor.execute(
+                "SELECT count(*), count(DISTINCT filename), min(timestamp), max(timestamp)"
+                " FROM logs"
+            ).fetchone()
+            by_level = dict(
+                cursor.execute(
+                    f"SELECT level, count(*) FROM logs WHERE {scope_where} GROUP BY level",
+                    parameters,
+                ).fetchall()
+            )
+            groups = cursor.execute(
+                "SELECT level, logger, t, count(*), count(DISTINCT filename), max(timestamp),"
+                " min(timestamp || char(9) || filename || char(9) || printf('%010d', line))"
+                " FROM (SELECT level, logger, tmpl(message) AS t, timestamp, filename, line"
+                f" FROM logs WHERE {scope_where} AND {level_where})"
+                " GROUP BY level, logger, t",
+                [*parameters, *level_parameters],
+            ).fetchmany(MAX_DIGEST_GROUPS + 1)
+        except sqlite3.Error as exc:
+            if "interrupted" in str(exc):
+                raise ToolExecutionError(
+                    "Digest timed out; narrow start/end or set filename."
+                ) from exc
+            raise ToolExecutionError(f"Digest failed: {str(exc)[:300]}") from exc
+        finally:
+            cursor.close()
+            self.connection.set_progress_handler(None, 0)
+
+        capped = len(groups) > MAX_DIGEST_GROUPS
+        return build_digest(
+            {"lines": total, "files": files, "start": first, "end": last},
+            {
+                "filters": filters,
+                "lines_by_level": {k: v for k, v in by_level.items() if k is not None},
+                "unparsed_lines": by_level.get(None, 0),
+            },
+            groups[:MAX_DIGEST_GROUPS],
+            groups_capped=capped,
         )
 
     def nearby(self, filename: str, line: int, radius: int = 3) -> QueryResult:
