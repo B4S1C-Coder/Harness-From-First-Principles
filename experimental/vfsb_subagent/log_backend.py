@@ -50,6 +50,19 @@ class QueryBackend(Protocol):
     def query(self, sql: str, parameters: tuple[Any, ...] = ()) -> QueryResult: ...
 
 
+def _short_name(name: str | None) -> str | None:
+    return None if name is None else name.rsplit(".", 1)[-1]
+
+
+# Evidence rows returned to the model: each source line appears once. `raw` and `thread` stay in
+# the table (keyword search and advanced_log_analysis still see them) but are not echoed per row,
+# and an unparsed line (stack trace, continuation) is returned verbatim in the message slot.
+EVIDENCE_COLUMNS = (
+    "filename, line, timestamp, level, logger_name(logger) AS logger,"
+    " CASE WHEN timestamp IS NULL THEN rtrim(raw, char(13, 10)) ELSE message END AS message"
+)
+
+
 class SQLiteLogs:
     schema = (
         "logs(filename TEXT, line INTEGER, raw TEXT, timestamp TEXT, level"
@@ -64,6 +77,7 @@ class SQLiteLogs:
         self.timeout_seconds = timeout_seconds
         try:
             self.connection.create_function("tmpl", 1, normalize, deterministic=True)
+            self.connection.create_function("logger_name", 1, _short_name, deterministic=True)
             self.connection.execute(
                 
                     "CREATE TABLE logs(filename TEXT, line INTEGER, raw TEXT, timestam"
@@ -167,7 +181,7 @@ class SQLiteLogs:
             clauses.append("instr(raw, ?) > 0")
             parameters.append(keyword)
         return self.query(
-            "SELECT * FROM logs WHERE "
+            f"SELECT {EVIDENCE_COLUMNS} FROM logs WHERE "
             + (" AND ".join(clauses) or "1")
             + " ORDER BY timestamp, filename, line",
             tuple(parameters),
@@ -245,7 +259,8 @@ class SQLiteLogs:
 
     def nearby(self, filename: str, line: int, radius: int = 3) -> QueryResult:
         return self.query(
-            "SELECT * FROM logs WHERE filename = ? AND line BETWEEN ? AND ? ORDER BY line",
+            f"SELECT {EVIDENCE_COLUMNS} FROM logs"
+            " WHERE filename = ? AND line BETWEEN ? AND ? ORDER BY line",
             (filename, max(1, line - radius), line + radius),
         )
 

@@ -58,14 +58,19 @@ class SyncTextLLMClient:
         model: str | None = None,
         api_key: str | None = None,
         provider_url: str | None = None,
+        max_retries: int = 2,
     ) -> None:
-        
+        """`max_retries` is the SDK's automatic retry count for 429/5xx/connection errors. It
+        waits for the provider's Retry-After hint, so raise it on tight tokens-per-minute tiers."""
+
         self.model: str = model if model is not None else load_env("MODEL")
 
         api_key = api_key if api_key is not None else load_env("API_KEY")
         provider_url = provider_url if provider_url is not None else load_env("MODEL_URL")
 
-        self.__client: openai.OpenAI = openai.OpenAI(base_url=provider_url, api_key=api_key)
+        self.__client: openai.OpenAI = openai.OpenAI(
+            base_url=provider_url, api_key=api_key, max_retries=max_retries
+        )
 
     @guarded_execution
     def check_connection(self):

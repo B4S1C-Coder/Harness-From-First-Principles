@@ -42,18 +42,21 @@ def test_parse_filters_and_evidence(logs) -> None:
     row = logs.search(
         level="ERROR", keyword="%_", filename="app-01.log", start="2025-01-01", end="2025-01-02"
     ).rows[0]
-    assert row[:2] == ["app-01.log", 1]
-    assert row[2].endswith("\r\n")
-    assert row[3:] == [
+    # Evidence rows carry each line once: filename, line, timestamp, level, logger, message.
+    assert row == [
+        "app-01.log",
+        1,
         "2025-01-01 00:00:00,001",
         "ERROR",
-        "worker",
-        "app.Test",
+        "Test",
         "literal %_ failure",
     ]
+    # The table still preserves the source line verbatim, including its terminator.
+    assert logs.query("SELECT raw FROM logs WHERE line = 1").rows[0][0].endswith("\r\n")
     nearby = logs.nearby("app-01.log", 2, 1)
     assert [row[1] for row in nearby.rows] == [1, 2, 3]
-    assert nearby.rows[1][3:] == [None] * 5
+    # An unparsed line (e.g. a stack trace) is returned verbatim in the message slot.
+    assert nearby.rows[1] == ["app-01.log", 2, None, None, None, "stack trace"]
     assert logs.query("SELECT count(*) FROM logs").rows == [[3]]
     assert sum(row[2] for row in logs.overview().rows) == 3
     assert logs.search(keyword="absent").rows == []
