@@ -8,6 +8,8 @@ from experimental.vfsb_subagent.log_backend import SQLiteLogs
 from experimental.vfsb_subagent.query_helper import QueryHelper
 from experimental.vfsb_subagent.log_tools import (
     IncidentDigestTool,
+    ScanSignaturesTool,
+    TimelineTool,
     SearchLogsTool,
     NearbyLogsTool,
     AdvancedLogAnalysisTool,
@@ -52,6 +54,8 @@ def build_agent(
         config=SCMTTConfig(
             tools=(
                 IncidentDigestTool(backend),
+                ScanSignaturesTool(backend),
+                TimelineTool(backend),
                 SearchLogsTool(backend),
                 NearbyLogsTool(backend),
                 AdvancedLogAnalysisTool(query_helper),

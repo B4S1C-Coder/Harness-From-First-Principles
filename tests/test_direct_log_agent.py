@@ -46,6 +46,23 @@ def test_main_agent_owns_evidence_and_helper_only_receives_query_request(
                     }
                 ],
             ),
+            *[
+                ChatCompletionMessage(
+                    role="assistant",
+                    tool_calls=[
+                        {
+                            "id": name,
+                            "type": "function",
+                            "function": {"name": name, "arguments": json.dumps(args)},
+                        }
+                    ],
+                )
+                for name, args in (
+                    ("scan_signatures", {"custom": []}),
+                    ("timeline", {"start": "2025", "end": "2026", "filename": None}),
+                    ("nearby_logs", {"refs": [{"filename": "app-01.log", "line": 1}], "radius": 1}),
+                )
+            ],
             ChatCompletionMessage(
                 role="assistant",
                 tool_calls=[
@@ -71,8 +88,15 @@ def test_main_agent_owns_evidence_and_helper_only_receives_query_request(
     )
     try:
         agent = build_agent(backend, app_logger, main_client, query_client, "Own the investigation")
+        for tool in agent.tools:
+            schema = tool["function"]["parameters"]
+            assert set(schema["properties"]) == set(schema.get("required", [])), tool["function"][
+                "name"
+            ]
         assert {tool["function"]["name"] for tool in agent.tools} == {
             "incident_digest",
+            "timeline",
+            "scan_signatures",
             "search_logs",
             "nearby_logs",
             "advanced_log_analysis",
@@ -82,6 +106,8 @@ def test_main_agent_owns_evidence_and_helper_only_receives_query_request(
         assert agent.enable_context_check and agent.token_estimator is not None
         agent.add_user_message("Investigate the Hadoop failure using your log-analysis specialist.")
         assert agent.step() is True
+        for _ in range(3):
+            assert agent.step() is True
         assert not query_client.calls
         assert agent.step() is True
         assert len(query_client.calls) == 1
@@ -91,7 +117,8 @@ def test_main_agent_owns_evidence_and_helper_only_receives_query_request(
         assert "Hadoop" not in json.dumps(helper_messages)
         assert agent.step() is False
         evidence = [m for m in main_client.calls[-1][1] if m["role"] == "tool"]
-        assert len(evidence) == 2
+        assert len(evidence) == 5
+        assert all(json.loads(m["content"])["success"] for m in evidence)
         assert json.loads(evidence[-1]["content"])["data"]["rows"] == [[1]]
         assert agent.messages[-1]["content"] == "One error; cause remains uncertain."
     finally:
