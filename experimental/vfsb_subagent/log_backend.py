@@ -13,6 +13,7 @@ from harness.exceptions import ToolExecutionError
 from experimental.vfsb_subagent.log_digest import QUIET_LEVELS, build_digest, normalize
 
 MAX_BYTES = 4096
+SEARCH_BYTES = 5120
 MAX_ROWS = 20
 # The digest scans every non-INFO line, so it gets a larger time budget than ad-hoc queries.
 DIGEST_TIMEOUT_SECONDS = 10.0
@@ -29,9 +30,9 @@ class QueryResult:
     truncated: bool = False
 
 
-def bounded_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def bounded_payload(payload: dict[str, Any], max_bytes: int = MAX_BYTES) -> dict[str, Any]:
     """Leave room for the executor envelope; retain explicit truncation metadata."""
-    while len(json.dumps(payload).encode()) > MAX_BYTES - 128:
+    while len(json.dumps(payload).encode()) > max_bytes - 128:
         payload["truncated"] = True
         if payload.get("rows"):
             payload["rows"].pop()
@@ -119,7 +120,9 @@ class SQLiteLogs:
             return sqlite3.SQLITE_OK
         return sqlite3.SQLITE_OK if action in allowed else sqlite3.SQLITE_DENY
 
-    def query(self, sql: str, parameters: tuple[Any, ...] = ()) -> QueryResult:
+    def query(
+        self, sql: str, parameters: tuple[Any, ...] = (), *, max_bytes: int = MAX_BYTES
+    ) -> QueryResult:
         deadline = time.monotonic() + self.timeout_seconds
         self.connection.set_progress_handler(lambda: int(time.monotonic() >= deadline), 100)
         # Prevent single huge cells from allocating unbounded response buffers.
@@ -134,7 +137,7 @@ class SQLiteLogs:
                 columns,
                 len(rows) > MAX_ROWS,
             )
-            data = bounded_payload(asdict(result))
+            data = bounded_payload(asdict(result), max_bytes)
             return QueryResult(data["rows"], data.get("columns", []), data["truncated"])
         except sqlite3.Error as exc:
             raise ToolExecutionError(f"SQLite query failed: {str(exc)[:300]}") from exc
@@ -185,6 +188,7 @@ class SQLiteLogs:
             + (" AND ".join(clauses) or "1")
             + " ORDER BY timestamp, filename, line",
             tuple(parameters),
+            max_bytes=SEARCH_BYTES,
         )
 
     def digest(

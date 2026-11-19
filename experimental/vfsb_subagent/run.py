@@ -1,4 +1,6 @@
+from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 from dotenv import load_dotenv
 
@@ -8,6 +10,8 @@ from experimental.vfsb_subagent.log_backend import SQLiteLogs
 from experimental.vfsb_subagent.query_helper import QueryHelper
 from experimental.vfsb_subagent.log_tools import (
     IncidentDigestTool,
+    ScanSignaturesTool,
+    TimelineTool,
     SearchLogsTool,
     NearbyLogsTool,
     AdvancedLogAnalysisTool,
@@ -19,7 +23,7 @@ from harness.logger import ApplicationLogger
 
 ROOT = Path(__file__).resolve().parent.parent
 PROMPT_ROOT = ROOT.parent / "examples" / "data"
-MAIN_AGENT_MAX_TOOL_TURNS = 12
+MAIN_AGENT_MAX_TOOL_TURNS = 6
 MAIN_AGENT_MAX_STEPS = MAIN_AGENT_MAX_TOOL_TURNS + 1
 
 
@@ -52,12 +56,33 @@ def build_agent(
         config=SCMTTConfig(
             tools=(
                 IncidentDigestTool(backend),
+                ScanSignaturesTool(backend),
+                TimelineTool(backend),
                 SearchLogsTool(backend),
                 NearbyLogsTool(backend),
                 AdvancedLogAnalysisTool(query_helper),
             )
         ),
     )
+
+
+def run_turn(agent: SCMTTAgent, query: str, outputs: Path) -> None:
+    with agent.turn():
+        agent.add_user_message(query)
+        for _ in range(MAIN_AGENT_MAX_STEPS):
+            if agent.step():
+                continue
+            content = agent.messages[-1].get("content")
+            if isinstance(content, str) and content:
+                timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+                path = outputs / f"handoff-{timestamp}-{uuid4().hex}.md"
+                try:
+                    outputs.mkdir(parents=True, exist_ok=True)
+                    with path.open("x", encoding="utf-8") as report:
+                        report.write(content)
+                except OSError as exc:
+                    agent.logger.error("Could not save handoff to %s: %s", path, exc)
+            return
 
 
 def main() -> None:
@@ -81,11 +106,7 @@ def main() -> None:
                 break
             if not query:
                 continue
-            with agent.turn():
-                agent.add_user_message(query)
-                for _ in range(MAIN_AGENT_MAX_STEPS):
-                    if not agent.step():
-                        break
+            run_turn(agent, query, Path(__file__).with_name("outputs"))
     finally:
         if backend is not None:
             backend.close()

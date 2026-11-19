@@ -187,3 +187,4 @@ Run a **network‑reachability check** (e.g., `telnet msra‑sa‑41 9000` or `n
 User> 2026-11-17 15:22:54,801 | INFO     | cbddaa6bf85b4139a821ae18760c606b | app.137147992056576.application | Input tok; 4910, Cached tok: 0
 exit
 ```
+After incident_digest, scan_signatures tests the built-in catalog and optional custom literal alternatives. Use timeline for warning and failure episodes and nearby_logs(refs, radius) to verify several source anchors together.

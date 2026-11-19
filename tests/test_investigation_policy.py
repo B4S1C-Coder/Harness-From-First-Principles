@@ -35,7 +35,11 @@ def search_call(arguments: str | None = None) -> ChatCompletionMessage:
                     "arguments": arguments
                     if arguments is not None
                     else json.dumps(
-                        dict.fromkeys(["start", "end", "level", "filename", "keyword"])
+                        {
+                            "queries": [
+                                dict.fromkeys(["start", "end", "level", "filename", "keyword"])
+                            ]
+                        }
                     ),
                 },
             }
@@ -95,7 +99,7 @@ def test_budget_forces_summary_and_logs_search(
     request = json.loads(records[0].split("Tool request: ", 1)[1])
     result = json.loads(records[1].split("Tool result: ", 1)[1])
     assert request["call_id"] == result["call_id"] == "search-1"
-    assert json.loads(request["arguments"])["keyword"] is None
+    assert json.loads(request["arguments"])["queries"][0]["keyword"] is None
     assert result["success"] and result["row_count"] == 1 and not result["truncated"]
     assert result["source_references"] == [{"filename": "app-01.log", "line": 1}]
 
@@ -183,3 +187,29 @@ def test_empty_tools_disable_provider_tool_choice() -> None:
     definitions = [{"type": "function", "function": {"name": "test"}}]
     client.generate_next(definitions, [])
     assert calls[1]["tools"] == definitions and calls[1]["tool_choice"] == "auto"
+
+
+def test_completed_turns_save_exact_handoffs(tmp_path: Path, app_logger: ApplicationLogger) -> None:
+    from experimental.vfsb_subagent.run import run_turn
+
+    outputs = tmp_path / "outputs"
+    backend = SQLiteLogs(tmp_path)
+    try:
+        client = FakeClient(
+            [
+                search_call(),
+                ChatCompletionMessage(role="assistant", content="**Budget summary**"),
+                ChatCompletionMessage(role="assistant", content="Follow-up finding."),
+            ]
+        )
+        agent = make_agent(client, app_logger, backend)
+        run_turn(agent, "Investigate", outputs)
+        assert [p.read_text() for p in outputs.iterdir()] == ["**Budget summary**"]
+        assert client.calls[1][0] == []
+        run_turn(agent, "Follow up", outputs)
+        assert sorted(p.read_text() for p in outputs.glob("*.md")) == [
+            "**Budget summary**",
+            "Follow-up finding.",
+        ]
+    finally:
+        backend.close()

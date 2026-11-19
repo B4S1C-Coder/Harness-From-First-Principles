@@ -1,10 +1,12 @@
 """Bounded log investigation tools for this experiment."""
 
+import json
 from dataclasses import asdict
 from typing import Any
 
+from . import log_evidence
 from harness.tools import BaseTool, ToolRegistry
-from experimental.vfsb_subagent.log_backend import SQLiteLogs
+from experimental.vfsb_subagent.log_backend import SEARCH_BYTES, SQLiteLogs
 from experimental.vfsb_subagent.query_helper import QueryHelper
 
 
@@ -27,11 +29,11 @@ class LogOverviewTool(BaseTool):
 class SearchLogsTool(LogOverviewTool):
     name = "search_logs"
     description = (
-        "Filter logs by inclusive timestamps, exact level/file and case-se"
-        "nsitive literal keyword. Null disables a filter. At most 20 rows/"
-        "4 KiB; narrow truncated searches."
+        "Batch independent searches in one call. Each query uses inclusive times, exact file "
+        "and level, and a case-sensitive literal keyword. Null disables a filter. Results "
+        "follow query order. One query returns rows directly. Up to 20 rows each, 5 KiB total."
     )
-    parameters = {
+    query_schema = {
         "type": "object",
         "properties": {
             key: {"type": ["string", "null"]}
@@ -41,27 +43,123 @@ class SearchLogsTool(LogOverviewTool):
         "additionalProperties": False,
     }
 
-    def driver(self, args: dict[str, Any]) -> dict[str, Any]:
-        return asdict(self.backend.search(**args))
+    parameters = {
+        "type": "object",
+        "properties": {
+            "queries": {"type": "array", "items": query_schema, "minItems": 1, "maxItems": 8}
+        },
+        "required": ["queries"],
+        "additionalProperties": False,
+    }
+
+    def driver(self, args: dict[str, Any]) -> dict:
+        matches = [self.backend.search(**query) for query in args["queries"]]
+        if len(matches) == 1:
+            return asdict(matches[0])
+        groups = [{"rows": [], "truncated": match.truncated} for match in matches]
+        response = {"columns": matches[0].columns, "results": groups}
+        # Allocate one row per query per round, preserving each query's chronological prefix.
+        for index in range(max(len(match.rows) for match in matches)):
+            for match, group in zip(matches, groups, strict=True):
+                if index >= len(match.rows) or len(group["rows"]) != index:
+                    continue
+                group["rows"].append(match.rows[index])
+                if len(json.dumps(response).encode()) > SEARCH_BYTES - 128:
+                    group["rows"].pop()
+                    group["truncated"] = True
+        return response
 
 
 @ToolRegistry.register
 class NearbyLogsTool(LogOverviewTool):
     name = "nearby_logs"
-    description = "Retrieve source lines around a 1-based line reference within one file."
+    description = (
+        "Batch source context. Row columns: filename, line, timestamp, level, logger, message."
+    )
     parameters = {
         "type": "object",
         "properties": {
-            "filename": {"type": "string"},
-            "line": {"type": "integer", "minimum": 1},
+            "refs": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {"type": "string", "maxLength": 255},
+                        "line": {"type": "integer", "minimum": 1},
+                    },
+                    "required": ["filename", "line"],
+                    "additionalProperties": False,
+                },
+            },
             "radius": {"type": "integer", "minimum": 0, "maximum": 9},
         },
-        "required": ["filename", "line", "radius"],
+        "required": ["refs", "radius"],
         "additionalProperties": False,
     }
 
-    def driver(self, args: dict[str, Any]) -> dict[str, Any]:
-        return asdict(self.backend.nearby(**args))
+    def driver(self, args: dict[str, Any]) -> dict:
+        return log_evidence.nearby(self.backend, **args)
+
+
+@ToolRegistry.register
+class ScanSignaturesTool(LogOverviewTool):
+    name = "scan_signatures"
+    description = (
+        "Count lines per signature, including zeros. Pass custom=[] for the built-in catalog. "
+        "Custom signatures match any case-insensitive literal alternative."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "custom": {
+                "type": "array",
+                "maxItems": 8,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "minLength": 1, "maxLength": 32},
+                        "alternatives": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 8,
+                            "items": {"type": "string", "minLength": 1, "maxLength": 128},
+                        },
+                    },
+                    "required": ["name", "alternatives"],
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["custom"],
+        "additionalProperties": False,
+    }
+
+    def driver(self, args: dict[str, Any]) -> dict:
+        return log_evidence.scan(self.backend, args["custom"])
+
+
+@ToolRegistry.register
+class TimelineTool(LogOverviewTool):
+    name = "timeline"
+    description = (
+        "Ordered warning and failure episodes within inclusive timestamps. "
+        "Null filename includes all files."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "start": {"type": "string"},
+            "end": {"type": "string"},
+            "filename": {"type": ["string", "null"]},
+        },
+        "required": ["start", "end", "filename"],
+        "additionalProperties": False,
+    }
+
+    def driver(self, args: dict[str, Any]) -> dict:
+        return log_evidence.timeline(self.backend, **args)
 
 
 @ToolRegistry.register
