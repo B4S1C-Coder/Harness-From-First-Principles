@@ -21,7 +21,7 @@ from harness.logger import ApplicationLogger
 
 ROOT = Path(__file__).resolve().parent.parent
 PROMPT_ROOT = ROOT.parent / "examples" / "data"
-MAIN_AGENT_MAX_TOOL_TURNS = 12
+MAIN_AGENT_MAX_TOOL_TURNS = 6
 MAIN_AGENT_MAX_STEPS = MAIN_AGENT_MAX_TOOL_TURNS + 1
 
 

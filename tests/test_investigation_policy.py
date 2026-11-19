@@ -35,7 +35,11 @@ def search_call(arguments: str | None = None) -> ChatCompletionMessage:
                     "arguments": arguments
                     if arguments is not None
                     else json.dumps(
-                        dict.fromkeys(["start", "end", "level", "filename", "keyword"])
+                        {
+                            "queries": [
+                                dict.fromkeys(["start", "end", "level", "filename", "keyword"])
+                            ]
+                        }
                     ),
                 },
             }
@@ -95,7 +99,7 @@ def test_budget_forces_summary_and_logs_search(
     request = json.loads(records[0].split("Tool request: ", 1)[1])
     result = json.loads(records[1].split("Tool result: ", 1)[1])
     assert request["call_id"] == result["call_id"] == "search-1"
-    assert json.loads(request["arguments"])["keyword"] is None
+    assert json.loads(request["arguments"])["queries"][0]["keyword"] is None
     assert result["success"] and result["row_count"] == 1 and not result["truncated"]
     assert result["source_references"] == [{"filename": "app-01.log", "line": 1}]
 

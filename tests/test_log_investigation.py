@@ -130,14 +130,27 @@ def test_json_values_and_tool_bounds(logs, app_logger) -> None:
     )
     for name, args in [
         ("log_overview", {}),
-        ("search_logs", dict.fromkeys(["start", "end", "level", "filename", "keyword"])),
+        (
+            "search_logs",
+            {
+                "queries": [
+                    dict.fromkeys(["start", "end", "level", "filename", "keyword"]),
+                    dict.fromkeys(["start", "end", "level", "filename", "keyword"]),
+                ]
+            },
+        ),
         ("nearby_logs", {"refs": [{"filename": "app-01.log", "line": 1}], "radius": 2}),
         ("advanced_log_analysis", {"request": "large result"}),
     ]:
         output = executor.execute(name, args)
-        assert len(output.encode()) <= 4096
+        assert len(output.encode()) <= (5120 if name == "search_logs" else 4096)
         assert json.loads(output)["success"]
-        assert "truncated" in json.loads(output)["data"]
+        data = json.loads(output)["data"]
+        if name == "search_logs":
+            assert len(data["results"]) == 2
+            assert all(group["rows"] for group in data["results"])
+        else:
+            assert "truncated" in data
 
 
 def test_incident_evidence_on_sample() -> None:
