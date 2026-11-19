@@ -7,7 +7,7 @@
 ## Public interface
 
 - Export generic `SynchronousAgentBase[ConfigT]` from `harness.agents`; `__init__` is marked `@final`.
-- Constructor: `SynchronousAgentBase(client: SyncTextLLMClient, logger: ApplicationLogger, system_prompt: str, *, config: ConfigT | None = None, tools: list[ChatCompletionToolParam] | None = None, context_budget: int = 8_000, compaction_threshold: float = 0.8, recent_turns_to_keep: int = 2, enable_context_check: bool = True, max_tool_turns: int | None = None, compaction: Callable[[list[ChatCompletionMessageParam], SyncTextLLMClient, int], list[ChatCompletionMessageParam]] = naive_compaction) -> None`.
+- Constructor: `SynchronousAgentBase(client: SyncTextLLMClient, logger: ApplicationLogger, system_prompt: str, *, config: ConfigT | None = None, tools: list[ChatCompletionToolParam] | None = None, context_budget: int = 8_000, compaction_threshold: float = 0.8, recent_turns_to_keep: int = 2, enable_context_check: bool = True, max_tool_turns: int | None = None, compaction: Callable[[list[ChatCompletionMessageParam], SyncTextLLMClient, int], list[ChatCompletionMessageParam]] = naive_compaction, token_estimator: TokenEstimatorLike | None = None) -> None`.
 - Abstract handlers: `handle_message(self, message: ChatCompletionMessage) -> bool`, `handle_tool_call(self, message: ChatCompletionMessage) -> bool`.
 - Methods: `add_user_message(self, content: str) -> None`, `step(self) -> bool`, `reset(self) -> None`.
 - Context manager: `turn(self) -> Generator[None]` establishes a logger correlation scope.
@@ -25,6 +25,7 @@
 - Append the serialized assistant message before dispatching to the tool-call or normal handler.
 - With `enable_context_check=False`, skip the estimate, automatic compaction, and size rejection entirely. This bypass does not change provider limits.
 - By default, before each model request, estimate serialized messages and tools conservatively at one UTF-8 byte per token. At budget times threshold, invoke the configured compaction callable and recheck; failure or an oversized result raises `UnexpectedResponseError` before any investigation request. Final reports remain untouched after handlers return.
+- With `token_estimator` (any object with `next_request(messages, tools, *, last_prompt_tokens, counted) -> int`, e.g. `harness.token_estimator.TokenEstimator`), the estimate is the provider-reported prompt tokens of the previous request plus the estimator's count of messages added since; it is `None` (full estimate) before the first response, after compaction, and when usage was zero. The agent depends only on this protocol, not on the estimator module.
 - `add_user_message` ignores empty content; `reset` replaces history with the current system prompt.
 - Client, logger, handler, and serialization exceptions propagate; compaction failures are wrapped in `UnexpectedResponseError`.
 - `step()` advances the agent by exactly one LLM turn. Callers own the conversation loop. Don't add looping or auto-run behavior to the base class.

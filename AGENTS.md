@@ -21,6 +21,7 @@ Python framework for building LLM agents and harnesses from first principles: ag
   - `helpers.py` - helper tools such as safely loading environment variables etc.
   - `limits.py` - dataclasses specifically governing limits, such as tool call limits, etc.
   - `logger.py` - logger that must be used with the framework
+  - `token_estimator.py` - hybrid tiktoken/provider-usage prompt-size estimator for context checks
 - `refs/` - reference material, read-only
 - `examples/` - runnable examples of the framework
   - `basic_agent/` - basic agent with dummy tools, a conversation loop and compaction

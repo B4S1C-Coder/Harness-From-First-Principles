@@ -80,7 +80,8 @@ def test_digest_groups_and_orders(backend: SQLiteLogs) -> None:
     assert digest["scope"]["templates"] == 3 and digest["scope"]["lines_in_templates"] == 5
     assert "INFO" not in {row[0] for row in digest["rows"]}
     retry = next(row for row in digest["rows"] if row[1] == "Net")
-    # level, logger, count, files, first, last, first_ref, template
+    # level, logger, count, files, first, last, first_ref, message. The message is the verbatim
+    # first occurrence, never the masked grouping template.
     assert retry == [
         "WARN",
         "Net",
@@ -89,8 +90,9 @@ def test_digest_groups_and_orders(backend: SQLiteLogs) -> None:
         "2025-01-01 00:00:02,000",
         "2025-01-01 00:00:06,000",
         "app-01.log:2",
-        "retry <N> of <N> to host-3:<N>",
+        "retry 1 of 10 to host-3:8030",
     ]
+    assert not any("<N>" in row[7] or "<IP>" in row[7] for row in digest["rows"])
     firsts = [row[4] for row in digest["rows"]]
     assert firsts == sorted(firsts) and not digest["truncated"] and "omitted" not in digest
 
@@ -144,16 +146,29 @@ def test_tmpl_is_usable_from_analysis_queries(backend: SQLiteLogs) -> None:
 
 def test_digest_prefers_severity_and_reports_omissions() -> None:
     groups = [
-        ("WARN", "a.Noisy", f"noisy template {i}", 50, 1, "2025-01-01 00:00:01,000",
-         f"2025-01-01 00:00:0{i % 10},000\tapp-01.log\t{i + 1:010d}")
+        (
+            "WARN",
+            "a.Noisy",
+            50,
+            1,
+            "2025-01-01 00:00:01,000",
+            f"2025-01-01 00:00:0{i % 10},000\tapp-01.log\t{i + 1:010d}\tnoisy message {i}",
+        )
         for i in range(60)
     ] + [
-        ("FATAL", "a.Core", "fatal one", 1, 1, "2025-01-01 00:09:00,000",
-         "2025-01-01 00:09:00,000\tapp-01.log\t0000000999"),
+        (
+            "FATAL",
+            "a.Core",
+            1,
+            1,
+            "2025-01-01 00:09:00,000",
+            "2025-01-01 00:09:00,000\tapp-01.log\t0000000999\tfatal\tone",  # tab kept in message
+        ),
     ]
     digest = build_digest({"lines": 1}, {"filters": {}}, groups, byte_budget=1500)
     levels = [row[0] for row in digest["rows"]]
     assert "FATAL" in levels and len(digest["rows"]) < 61
+    assert next(r[7] for r in digest["rows"] if r[0] == "FATAL") == "fatal\tone"
     assert digest["truncated"]
     assert digest["omitted"]["templates"] + len(digest["rows"]) == 61
     assert digest["omitted"]["lines_by_level"] == {"WARN": digest["omitted"]["lines"]}

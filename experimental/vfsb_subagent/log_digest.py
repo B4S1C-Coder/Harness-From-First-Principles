@@ -1,4 +1,4 @@
-"""Deterministic incident digest: group WARN/ERROR lines into masked message templates.
+"""Deterministic incident digest: group WARN/ERROR lines by masked message template.
 
 The digest gives an investigator a bounded map of *which kinds of failures exist, how often, and
 when they first and last appeared* in one call. It involves no LLM. Pure functions live here so
@@ -14,10 +14,10 @@ from typing import Any
 DIGEST_BYTES = 5000
 # Reserved for the `omitted` block, which is added after rows are chosen.
 _OMITTED_RESERVE = 260
-MAX_TEMPLATE_CHARS = 200
+MAX_MESSAGE_CHARS = 200
 QUIET_LEVELS = ("INFO", "DEBUG", "TRACE")
 SEVERITY = {"FATAL": 3, "CRITICAL": 3, "SEVERE": 3, "ERROR": 2}  # anything else ranks 1 (WARN, ...)
-COLUMNS = ["level", "logger", "count", "files", "first", "last", "first_ref", "template"]
+COLUMNS = ["level", "logger", "count", "files", "first", "last", "first_ref", "message"]
 
 # Order matters: specific identifiers are masked before generic numbers.
 _MASKS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
@@ -63,7 +63,7 @@ def _short_logger(name: str | None) -> str:
     return (name or "").rsplit(".", 1)[-1]
 
 
-def _clip(text: str, limit: int = MAX_TEMPLATE_CHARS) -> str:
+def _clip(text: str, limit: int = MAX_MESSAGE_CHARS) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
@@ -77,16 +77,18 @@ def build_digest(
 ) -> dict[str, Any]:
     """Select the most informative template groups that fit the byte budget.
 
-    `groups` rows are (level, logger, template, count, files, last_ts, first_blob), where
-    first_blob is "timestamp<TAB>filename<TAB>zero-padded line" of the earliest occurrence.
+    `groups` rows are (level, logger, count, files, last_ts, first_blob), where first_blob is
+    "timestamp<TAB>filename<TAB>zero-padded line<TAB>message" of the group's earliest occurrence.
+    The template only defines the grouping; the row shows that occurrence's verbatim message, so
+    nothing masked (e.g. `<IP>`) is ever presented as log text.
 
     Selection is by severity (FATAL > ERROR > the rest), then earliest first appearance, until the
     budget is used; the chosen rows are then presented in order of first appearance. Whatever did
     not fit is summarized under `omitted` so the caller can narrow the window or level.
     """
     parsed = []
-    for level, logger, template, count, files, last, blob in groups:
-        first, filename, line = blob.split("\t")
+    for level, logger, count, files, last, blob in groups:
+        first, filename, line, message = blob.split("\t", 3)
         parsed.append(
             {
                 "sev": SEVERITY.get((level or "").upper(), 1),
@@ -99,7 +101,7 @@ def build_digest(
                     first,
                     last,
                     f"{filename}:{int(line)}",
-                    _clip(template or ""),
+                    _clip(message.strip()),
                 ],
                 "first": (first, filename, line),
             }

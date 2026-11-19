@@ -228,9 +228,11 @@ class SQLiteLogs:
                 ).fetchall()
             )
             groups = cursor.execute(
-                "SELECT level, logger, t, count(*), count(DISTINCT filename), max(timestamp),"
-                " min(timestamp || char(9) || filename || char(9) || printf('%010d', line))"
-                " FROM (SELECT level, logger, tmpl(message) AS t, timestamp, filename, line"
+                "SELECT level, logger, count(*), count(DISTINCT filename), max(timestamp),"
+                " min(timestamp || char(9) || filename || char(9) || printf('%010d', line)"
+                " || char(9) || message)"
+                " FROM (SELECT level, logger, tmpl(message) AS t, message, timestamp, filename,"
+                " line"
                 f" FROM logs WHERE {scope_where} AND {level_where})"
                 " GROUP BY level, logger, t",
                 [*parameters, *level_parameters],

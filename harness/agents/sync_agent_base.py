@@ -3,7 +3,7 @@ import json
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from collections.abc import Callable, Generator
-from typing import cast, final
+from typing import Protocol, cast, final
 
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
@@ -16,6 +16,19 @@ from harness.compaction import naive_compaction
 from harness.exceptions import UnexpectedResponseError, ValueValidationError
 from harness.llms import SyncTextLLMClient
 from harness.logger import ApplicationLogger
+
+
+class TokenEstimatorLike(Protocol):
+    """Structural type for `token_estimator`; see `harness.token_estimator.TokenEstimator`."""
+
+    def next_request(
+        self,
+        messages: list[ChatCompletionMessageParam],
+        tools: list[ChatCompletionToolParam] | None = None,
+        *,
+        last_prompt_tokens: int | None = None,
+        counted: int = 0,
+    ) -> int: ...
 
 
 class SynchronousAgentBase[ConfigT](ABC):
@@ -37,6 +50,7 @@ class SynchronousAgentBase[ConfigT](ABC):
             [list[ChatCompletionMessageParam], SyncTextLLMClient, int],
             list[ChatCompletionMessageParam],
         ] = naive_compaction,
+        token_estimator: TokenEstimatorLike | None = None,
     ) -> None:
 
         if max_tool_turns is not None and max_tool_turns < 0:
@@ -44,6 +58,10 @@ class SynchronousAgentBase[ConfigT](ABC):
         self.max_tool_turns = max_tool_turns
         self._tool_turns = 0
         self.compaction = compaction
+        self.token_estimator = token_estimator
+        # Provider-reported prompt size of the last request, and how many history messages it held.
+        self._last_prompt_tokens: int | None = None
+        self._sent_message_count = 0
         self.enable_context_check = enable_context_check
         self.client = client
         self.logger = logger
@@ -121,8 +139,15 @@ class SynchronousAgentBase[ConfigT](ABC):
                 },
             ]
 
-        # One UTF-8 byte per estimated token is intentionally conservative.
+        # Without an estimator, one UTF-8 byte per estimated token is intentionally conservative.
         def request_size() -> int:
+            if self.token_estimator is not None:
+                return self.token_estimator.next_request(
+                    request_messages(),
+                    request_tools,
+                    last_prompt_tokens=self._last_prompt_tokens,
+                    counted=self._sent_message_count,
+                )
             return len(
                 json.dumps(
                     {"messages": request_messages(), "tools": request_tools}, ensure_ascii=False
@@ -137,6 +162,8 @@ class SynchronousAgentBase[ConfigT](ABC):
                 )
             except Exception as exc:
                 raise UnexpectedResponseError("Compaction", "Unable to summarize history.") from exc
+            # History was rewritten, so the provider's last prompt size no longer describes it.
+            self._last_prompt_tokens = None
             if request_size() >= threshold:
                 raise UnexpectedResponseError(
                     "Compaction", "Request remains above the context threshold."
@@ -153,6 +180,9 @@ class SynchronousAgentBase[ConfigT](ABC):
         )
 
         self.logger.info(f"Input tok; {input_tokens}, Cached tok: {cached_tokens}")
+        # Zero means usage was ignored or missing: unknown, not an empty prompt.
+        self._last_prompt_tokens = input_tokens or None
+        self._sent_message_count = len(self.messages)
 
         if not response.choices:
             raise UnexpectedResponseError(
@@ -183,3 +213,5 @@ class SynchronousAgentBase[ConfigT](ABC):
         """Reset conversation history while retaining agent configuration."""
         self.messages = [{"role": "system", "content": self.system_prompt}]
         self._tool_turns = 0
+        self._last_prompt_tokens = None
+        self._sent_message_count = 0
