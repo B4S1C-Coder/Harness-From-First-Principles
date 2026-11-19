@@ -5,7 +5,7 @@
 
 ## Public interface
 - `from harness.llms import SyncTextLLMClient`.
-- `SyncTextLLMClient(model: str | None = None, api_key: str | None = None, provider_url: str | None = None) -> None`.
+- `SyncTextLLMClient(model: str | None = None, api_key: str | None = None, provider_url: str | None = None, max_retries: int = 2) -> None`; `max_retries` is the OpenAI SDK's automatic retry count (it honors the provider's Retry-After), worth raising on tight tokens-per-minute tiers.
 - `client.model: str` selects the model for generation and can be reassigned.
 - `client.check_connection()` returns the provider's model listing; no return annotation.
 - `client.generate_next(tools: list[ChatCompletionToolParam], messages: list[ChatCompletionMessageParam], *, dangerously_ignore_usage: bool = False) -> tuple[ChatCompletion, int, int]`.

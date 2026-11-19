@@ -8,6 +8,7 @@ dependencies = [
     "jsonschema>=4.26.0",
     "openai>=3.37.0",
     "python-dotenv>=1.2.4",
+    "tiktoken>=0.14.0",
 ]
 
 [dependency-groups]

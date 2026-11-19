@@ -79,7 +79,7 @@ def test_main_agent_owns_evidence_and_helper_only_receives_query_request(
         }
         assert agent.max_tool_turns == MAIN_AGENT_MAX_TOOL_TURNS
         assert MAIN_AGENT_MAX_STEPS == MAIN_AGENT_MAX_TOOL_TURNS + 1
-        assert not agent.enable_context_check
+        assert agent.enable_context_check and agent.token_estimator is not None
         agent.add_user_message("Investigate the Hadoop failure using your log-analysis specialist.")
         assert agent.step() is True
         assert not query_client.calls

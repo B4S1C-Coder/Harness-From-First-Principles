@@ -14,6 +14,7 @@ from experimental.vfsb_subagent.log_tools import (
 )
 from harness.prompts import PromptStore
 from harness.llms import SyncTextLLMClient
+from harness.token_estimator import TokenEstimator
 from harness.logger import ApplicationLogger
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -31,12 +32,19 @@ def build_agent(
 ) -> SCMTTAgent:
     """The investigator owns retrieval and RCA; the helper only generates queries."""
     query_helper = QueryHelper(backend, query_client)
+    estimator = TokenEstimator()
+    if not estimator.has_tokenizer:
+        logger.warning(
+            "tiktoken o200k_harmony unavailable (`uv add tiktoken`, or no network for its first "
+            "download); context estimates fall back to bytes per token."
+        )
     return SCMTTAgent(
         client=investigation_client,
         logger=logger,
         system_prompt=system_prompt,
         context_budget=8_000,
-        enable_context_check=False,
+        enable_context_check=True,
+        token_estimator=estimator,
         max_tool_turns=MAIN_AGENT_MAX_TOOL_TURNS,
         compaction_threshold=0.75,
         recent_turns_to_keep=1,
