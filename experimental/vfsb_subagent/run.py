@@ -1,4 +1,6 @@
+from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 from dotenv import load_dotenv
 
@@ -64,6 +66,25 @@ def build_agent(
     )
 
 
+def run_turn(agent: SCMTTAgent, query: str, outputs: Path) -> None:
+    with agent.turn():
+        agent.add_user_message(query)
+        for _ in range(MAIN_AGENT_MAX_STEPS):
+            if agent.step():
+                continue
+            content = agent.messages[-1].get("content")
+            if isinstance(content, str) and content:
+                timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+                path = outputs / f"handoff-{timestamp}-{uuid4().hex}.md"
+                try:
+                    outputs.mkdir(parents=True, exist_ok=True)
+                    with path.open("x", encoding="utf-8") as report:
+                        report.write(content)
+                except OSError as exc:
+                    agent.logger.error("Could not save handoff to %s: %s", path, exc)
+            return
+
+
 def main() -> None:
     load_dotenv()
     PromptStore.initialize(PROMPT_ROOT / "prompts.db")
@@ -85,11 +106,7 @@ def main() -> None:
                 break
             if not query:
                 continue
-            with agent.turn():
-                agent.add_user_message(query)
-                for _ in range(MAIN_AGENT_MAX_STEPS):
-                    if not agent.step():
-                        break
+            run_turn(agent, query, Path(__file__).with_name("outputs"))
     finally:
         if backend is not None:
             backend.close()

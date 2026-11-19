@@ -187,3 +187,29 @@ def test_empty_tools_disable_provider_tool_choice() -> None:
     definitions = [{"type": "function", "function": {"name": "test"}}]
     client.generate_next(definitions, [])
     assert calls[1]["tools"] == definitions and calls[1]["tool_choice"] == "auto"
+
+
+def test_completed_turns_save_exact_handoffs(tmp_path: Path, app_logger: ApplicationLogger) -> None:
+    from experimental.vfsb_subagent.run import run_turn
+
+    outputs = tmp_path / "outputs"
+    backend = SQLiteLogs(tmp_path)
+    try:
+        client = FakeClient(
+            [
+                search_call(),
+                ChatCompletionMessage(role="assistant", content="**Budget summary**"),
+                ChatCompletionMessage(role="assistant", content="Follow-up finding."),
+            ]
+        )
+        agent = make_agent(client, app_logger, backend)
+        run_turn(agent, "Investigate", outputs)
+        assert [p.read_text() for p in outputs.iterdir()] == ["**Budget summary**"]
+        assert client.calls[1][0] == []
+        run_turn(agent, "Follow up", outputs)
+        assert sorted(p.read_text() for p in outputs.glob("*.md")) == [
+            "**Budget summary**",
+            "Follow-up finding.",
+        ]
+    finally:
+        backend.close()
