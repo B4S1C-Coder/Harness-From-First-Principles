@@ -4,8 +4,9 @@ from uuid import uuid4
 
 from dotenv import load_dotenv
 
-from harness.shortcuts.generic_scmt import SCMTTAgent, SCMTTConfig
+from harness.shortcuts.generic_scmt import SCMTTAgent
 from harness.compaction import tool_aware_compaction
+from experimental.vfsb_subagent.investigator import InvestigationAgent, InvestigationConfig
 from experimental.vfsb_subagent.log_backend import SQLiteLogs
 from experimental.vfsb_subagent.query_helper import QueryHelper
 from experimental.vfsb_subagent.log_tools import (
@@ -42,7 +43,7 @@ def build_agent(
             "tiktoken o200k_harmony unavailable (`uv add tiktoken`, or no network for its first "
             "download); context estimates fall back to bytes per token."
         )
-    return SCMTTAgent(
+    return InvestigationAgent(
         client=investigation_client,
         logger=logger,
         system_prompt=system_prompt,
@@ -53,7 +54,8 @@ def build_agent(
         compaction_threshold=0.75,
         recent_turns_to_keep=1,
         compaction=tool_aware_compaction,
-        config=SCMTTConfig(
+        config=InvestigationConfig(
+            backend=backend,
             tools=(
                 IncidentDigestTool(backend),
                 ScanSignaturesTool(backend),

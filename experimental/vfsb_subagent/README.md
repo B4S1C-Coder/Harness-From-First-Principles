@@ -1,3 +1,9 @@
+# Investigation startup
+
+The first question in a conversation receives one opening evidence message. The harness runs the unfiltered digest, built-in signature scan, and timeline, then collects one line of nearby context on either side of up to eight source anchors. It selects the first fatal-level event, the start of the earliest episode, and the first ERROR for each full logger name and normalized message template. The pack records overlap, omissions, and clipped windows. The investigator can use targeted tools for remaining gaps. Follow-up questions reuse the conversation.
+
+After changing the investigator prompt, register its latest version with `uv run python -m experimental.vfsb_subagent.prompts` before launching `uv run python -m experimental.vfsb_subagent.run`.
+
 # The Ask
 A Hadoop MapReduce application experienced failures during job execution. Relevant application logs are available to your log-analysis specialist. Investigate the logs, reconstruct the sequence of failures, identify the most likely underlying issue, and explain which errors may be secondary symptoms. Cite specific log timestamps and messages. Do not claim a definitive root cause if the evidence is insufficient.
 

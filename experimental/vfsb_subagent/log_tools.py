@@ -5,6 +5,7 @@ from dataclasses import asdict
 from typing import Any
 
 from . import log_evidence
+from .log_pivots import MAX_PIVOTS
 from harness.tools import BaseTool, ToolRegistry
 from experimental.vfsb_subagent.log_backend import SEARCH_BYTES, SQLiteLogs
 from experimental.vfsb_subagent.query_helper import QueryHelper
@@ -87,7 +88,7 @@ class NearbyLogsTool(LogOverviewTool):
             "refs": {
                 "type": "array",
                 "minItems": 1,
-                "maxItems": 8,
+                "maxItems": MAX_PIVOTS,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -198,7 +199,7 @@ class AdvancedLogAnalysisTool(BaseTool):
 class IncidentDigestTool(BaseTool):
     name = "incident_digest"
     description = (
-        "START HERE. Deterministic map of the logs: non-INFO lines grouped into message types "
+        "Narrow the opening digest: non-INFO lines grouped into message types "
         "(numbers, ids, IPs ignored when grouping). Returns corpus size and time range, line "
         "counts by level, and per group: count, files, first/last timestamp, first_ref "
         "(file:line, for nearby_logs) and message (verbatim text of the FIRST occurrence; later "
