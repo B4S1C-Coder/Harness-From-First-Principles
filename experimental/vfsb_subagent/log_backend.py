@@ -162,14 +162,14 @@ class SQLiteLogs:
             
         )
 
-    def search(
-        self,
-        start: str | None = None,
-        end: str | None = None,
-        level: str | None = None,
-        filename: str | None = None,
-        keyword: str | None = None,
-    ) -> QueryResult:
+    @staticmethod
+    def _search_filter(
+        start: str | None,
+        end: str | None,
+        level: str | None,
+        filename: str | None,
+        keyword: str | None,
+    ) -> tuple[str, tuple[Any, ...]]:
         clauses, parameters = [], []
         for column, operator, value in (
             ("timestamp", ">=", start),
@@ -183,13 +183,38 @@ class SQLiteLogs:
         if keyword is not None:
             clauses.append("instr(raw, ?) > 0")
             parameters.append(keyword)
+        return " AND ".join(clauses) or "1", tuple(parameters)
+
+    def search(
+        self,
+        start: str | None = None,
+        end: str | None = None,
+        level: str | None = None,
+        filename: str | None = None,
+        keyword: str | None = None,
+    ) -> QueryResult:
+        where, parameters = self._search_filter(start, end, level, filename, keyword)
         return self.query(
-            f"SELECT {EVIDENCE_COLUMNS} FROM logs WHERE "
-            + (" AND ".join(clauses) or "1")
-            + " ORDER BY timestamp, filename, line",
-            tuple(parameters),
+            f"SELECT {EVIDENCE_COLUMNS} FROM logs WHERE {where} ORDER BY timestamp, filename, line",
+            parameters,
             max_bytes=SEARCH_BYTES,
         )
+
+    def count_matches(
+        self,
+        start: str | None = None,
+        end: str | None = None,
+        level: str | None = None,
+        filename: str | None = None,
+        keyword: str | None = None,
+    ) -> int | None:
+        """Total lines a search matches, however many rows it can return; None if too slow."""
+        where, parameters = self._search_filter(start, end, level, filename, keyword)
+        try:
+            counted = self.query(f"SELECT count(*) FROM logs WHERE {where}", parameters)
+            return int(counted.rows[0][0])
+        except ToolExecutionError:
+            return None
 
     def digest(
         self,

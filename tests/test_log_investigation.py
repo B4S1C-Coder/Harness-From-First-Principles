@@ -159,11 +159,13 @@ def test_incident_evidence_on_sample() -> None:
 
     db = SQLiteLogs(Path(__file__).resolve().parents[1] / "experimental/data/workspace")
     try:
-        signatures = scan(
+        scanned = scan(
             db, [{"name": "rm", "alternatives": ["contacting rm", "ERROR IN CONTACTING RM"]}]
-        )["signatures"]
+        )
+        signatures, zero = scanned["signatures"], scanned["zero"]
         assert signatures["no route"]["count"] > 0
-        assert signatures["disk full"]["first_ref"] is None
+        assert "disk full" not in signatures
+        assert "disk full" in zero
         assert (
             signatures["rm"]["count"]
             == db.connection.execute(
@@ -174,10 +176,11 @@ def test_incident_evidence_on_sample() -> None:
             "episodes"
         ]
         assert episodes[0]["interleaved"]
-        assert episodes[-1]["groups"][0]["level"] == "FATAL"
+        assert episodes[-1]["groups"][0][0] == "FATAL"
+        file, line = signatures["rm"]["first_ref"].rsplit(":", 1)
         refs = [
-            signatures["rm"]["first_ref"],
-            signatures["rm"]["first_ref"],
+            {"filename": file, "line": int(line)},
+            {"filename": file, "line": int(line)},
             {"filename": "missing", "line": 1},
         ]
         result = nearby(db, refs, 1)

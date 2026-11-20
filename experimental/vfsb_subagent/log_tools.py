@@ -31,7 +31,8 @@ class SearchLogsTool(LogOverviewTool):
     description = (
         "Batch independent searches in one call. Each query uses inclusive times, exact file "
         "and level, and a case-sensitive literal keyword. Null disables a filter. Results "
-        "follow query order. One query returns rows directly. Up to 20 rows each, 5 KiB total."
+        "follow query order. One query returns rows directly. Up to 20 rows each, 5 KiB total. "
+        "total_matches is the full count, so do not search just to count."
     )
     query_schema = {
         "type": "object",
@@ -54,9 +55,13 @@ class SearchLogsTool(LogOverviewTool):
 
     def driver(self, args: dict[str, Any]) -> dict:
         matches = [self.backend.search(**query) for query in args["queries"]]
+        totals = [self.backend.count_matches(**query) for query in args["queries"]]
         if len(matches) == 1:
-            return asdict(matches[0])
-        groups = [{"rows": [], "truncated": match.truncated} for match in matches]
+            return {**asdict(matches[0]), "total_matches": totals[0]}
+        groups = [
+            {"rows": [], "truncated": match.truncated, "total_matches": total}
+            for match, total in zip(matches, totals, strict=True)
+        ]
         response = {"columns": matches[0].columns, "results": groups}
         # Allocate one row per query per round, preserving each query's chronological prefix.
         for index in range(max(len(match.rows) for match in matches)):
@@ -107,8 +112,10 @@ class NearbyLogsTool(LogOverviewTool):
 class ScanSignaturesTool(LogOverviewTool):
     name = "scan_signatures"
     description = (
-        "Count lines per signature, including zeros. Pass custom=[] for the built-in catalog. "
-        "Custom signatures match any case-insensitive literal alternative."
+        "Count lines per failure signature; zero-count names are listed under zero. Pass "
+        "custom=[] for the built-in catalog. A custom entry is ONE mechanism: its alternatives "
+        "are spellings of the same message (case-insensitive literals), not different "
+        "hypotheses, and each alternative's count is returned. Never combine mechanisms."
     )
     parameters = {
         "type": "object",
@@ -144,14 +151,17 @@ class ScanSignaturesTool(LogOverviewTool):
 class TimelineTool(LogOverviewTool):
     name = "timeline"
     description = (
-        "Ordered warning and failure episodes within inclusive timestamps. "
-        "Null filename includes all files."
+        "Ordered warning and failure episodes (non-INFO) with per-group count and first/last "
+        "timestamp within the episode, ref file:line and message. Null start/end/filename mean "
+        "no limit. A message type already shown is shortened in later episodes. If groups or "
+        "episodes are omitted (lowest severity first), narrow the window or re-run with "
+        "start=next_start."
     )
     parameters = {
         "type": "object",
         "properties": {
-            "start": {"type": "string"},
-            "end": {"type": "string"},
+            "start": {"type": ["string", "null"]},
+            "end": {"type": ["string", "null"]},
             "filename": {"type": ["string", "null"]},
         },
         "required": ["start", "end", "filename"],
