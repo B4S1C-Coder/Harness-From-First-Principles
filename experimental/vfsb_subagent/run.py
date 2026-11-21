@@ -5,6 +5,7 @@ from uuid import uuid4
 from dotenv import load_dotenv
 
 from harness.shortcuts.generic_scmt import SCMTTAgent
+from harness.exceptions import UnexpectedResponseError
 from harness.compaction import tool_aware_compaction
 from experimental.vfsb_subagent.investigator import InvestigationAgent, InvestigationConfig
 from experimental.vfsb_subagent.log_backend import SQLiteLogs
@@ -68,23 +69,30 @@ def build_agent(
     )
 
 
-def run_turn(agent: SCMTTAgent, query: str, outputs: Path) -> None:
+def investigate_turn(agent: SCMTTAgent, query: str) -> tuple[str, int]:
+    """Return the final report and number of assistant tool-call batches."""
     with agent.turn():
         agent.add_user_message(query)
-        for _ in range(MAIN_AGENT_MAX_STEPS):
+        for tool_turns in range(MAIN_AGENT_MAX_STEPS):
             if agent.step():
                 continue
             content = agent.messages[-1].get("content")
-            if isinstance(content, str) and content:
-                timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-                path = outputs / f"handoff-{timestamp}-{uuid4().hex}.md"
-                try:
-                    outputs.mkdir(parents=True, exist_ok=True)
-                    with path.open("x", encoding="utf-8") as report:
-                        report.write(content)
-                except OSError as exc:
-                    agent.logger.error("Could not save handoff to %s: %s", path, exc)
-            return
+            if isinstance(content, str) and content.strip():
+                return content, tool_turns
+            break
+    raise UnexpectedResponseError("Investigator", "Turn ended without a final report.")
+
+
+def run_turn(agent: SCMTTAgent, query: str, outputs: Path) -> None:
+    content, _ = investigate_turn(agent, query)
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    path = outputs / f"handoff-{timestamp}-{uuid4().hex}.md"
+    try:
+        outputs.mkdir(parents=True, exist_ok=True)
+        with path.open("x", encoding="utf-8") as report:
+            report.write(content)
+    except OSError as exc:
+        agent.logger.error("Could not save handoff to %s: %s", path, exc)
 
 
 def main() -> None:
