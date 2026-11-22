@@ -183,6 +183,11 @@ def test_search_reports_total_matches_beyond_the_returned_rows(tmp_path: Path) -
             }
         )
         assert [g["total_matches"] for g in many["results"]] == [45, 0]
+        filtered = dict.fromkeys(keys) | {"keyword": "boom", "filename": "missing", "level": "WARN"}
+        empty = tool.driver({"queries": [filtered]})
+        assert empty["rows"] == [] and empty["keyword_matches_all_logs"] == 45
+        batch = tool.driver({"queries": [filtered, {**filtered, "keyword": "absent"}]})
+        assert [r["keyword_matches_all_logs"] for r in batch["results"]] == [45, 0]
         db.query = lambda *a, **k: (_ for _ in ()).throw(ToolExecutionError("slow"))  # type: ignore
         assert db.count_matches(keyword="boom") is None
     finally:
@@ -210,3 +215,27 @@ def test_tools_accept_null_timeline_window_and_expose_new_schema(
     assert output["success"] and output["data"]["episodes"]
     output = json.loads(executor.execute("scan_signatures", {"custom": []}))
     assert output["success"] and "zero" in output["data"]
+
+
+def test_continuations_inherit_time_only_within_their_file(tmp_path: Path) -> None:
+    from contextlib import closing
+
+    stamp = "2015-10-17 14:33:00,000"
+    diagnostic = "Container killed on request. Exit code is 137"
+    (tmp_path / "app-a.log").write_text(
+        f"{stamp} WARN [t] app.Job: Attempt killed\nStack trace\n{diagnostic}\n"
+        "2015-10-17 14:32:00,000 INFO [t] app.Job: Delayed message\n"
+    )
+    (tmp_path / "app-b.log").write_text("Leading fragment\n")
+    with closing(SQLiteLogs(tmp_path)) as db:
+        row = ["app-a.log", 3, None, None, None, diagnostic]
+        for window in ({}, {"start": stamp}, {"end": stamp}, {"start": stamp, "end": stamp}):
+            assert db.search(keyword="137", **window).rows == [row]
+            assert db.count_matches(keyword="137", **window) == 1
+        assert db.count_matches(start=stamp, level="WARN", keyword="137") == 0
+        assert db.count_matches(keyword="Leading") == 1
+        assert db.count_matches(keyword="Leading", end=stamp) == 0
+        assert [r[1] for r in db.search(filename="app-a.log").rows] == [4, 1, 2, 3]
+        assert [r[1] for r in db.nearby("app-a.log", 2, 2).rows] == [4, 1, 2, 3]
+        nearby = log_evidence.nearby(db, [{"filename": "app-a.log", "line": 2}], 2)
+        assert [r[1] for r in nearby["rows"]] == [4, 1, 2, 3]

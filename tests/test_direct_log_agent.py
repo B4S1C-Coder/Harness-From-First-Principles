@@ -224,3 +224,26 @@ def test_sample_pack_fits_fallback_and_shortened_sections_remain_retrievable(
         with pytest.raises(UnexpectedResponseError, match="context threshold"):
             agent.add_user_message("oversized question " * 2000)
         assert len(agent.messages) == 1 and len(main.calls) == 1
+
+
+def test_identical_calls_execute_once_per_run(
+    tmp_path: Path, app_logger: ApplicationLogger, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from unittest.mock import Mock
+
+    with closing(SQLiteLogs(tmp_path)) as db:
+        agent = build_agent(db, app_logger, FakeClient([]), FakeClient([]), "Investigate")
+        agent.add_user_message("First run")
+        search = Mock(wraps=db.search)
+        monkeypatch.setattr(db, "search", search)
+        query = {**dict.fromkeys(("start", "end", "level", "filename")), "keyword": "first"}
+        agent.executor.execute("search_logs", {"queries": [query]})
+        same = dict(reversed(query.items()))
+        duplicate = json.loads(agent.executor.execute("search_logs", {"queries": [same]}))
+        assert duplicate["data"] == {"see": "Identical call already made; result above"}
+        assert search.call_count == 1
+        agent.executor.execute("search_logs", {"queries": [{**query, "keyword": "second"}]})
+        assert search.call_count == 2
+        agent.add_user_message("Second run")
+        agent.executor.execute("search_logs", {"queries": [query]})
+        assert search.call_count == 3

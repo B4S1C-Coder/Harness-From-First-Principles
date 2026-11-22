@@ -180,12 +180,13 @@ def timeline(db: SQLiteLogs, start: str | None, end: str | None, filename: str |
 def nearby(db: SQLiteLogs, refs: list[dict], radius: int) -> dict[str, Any]:
     windows = []
     candidates = {}
+    order = {}
     result = dict(rows=[], windows=windows, truncated=False)
     for ref in refs:
         file, line = ref["filename"], ref["line"]
         rows = list(
             db.connection.execute(
-                f"SELECT {EVIDENCE_COLUMNS} FROM logs WHERE filename=? "
+                f"SELECT {EVIDENCE_COLUMNS}, effective_ts FROM logs WHERE filename=? "
                 "AND line BETWEEN ? AND ? ORDER BY line",
                 (file, line - radius, line + radius),
             )
@@ -194,6 +195,9 @@ def nearby(db: SQLiteLogs, refs: list[dict], radius: int) -> dict[str, Any]:
         windows.append(dict(**ref, found=found, clipped=False))
         if found:
             for row in rows:
+                *evidence, stamp = row
+                row = tuple(evidence)
+                order[row] = (stamp or "", file, row[1])
                 distance = abs(row[1] - line)
                 candidates[row] = min(distance, candidates.get(row, distance))
     for row in sorted(candidates, key=lambda row: (candidates[row], row[:2])):
@@ -208,5 +212,5 @@ def nearby(db: SQLiteLogs, refs: list[dict], radius: int) -> dict[str, Any]:
                     and abs(window["line"] - row[1]) <= radius
                 ):
                     window["clipped"] = True
-    result["rows"].sort()
+    result["rows"].sort(key=order.__getitem__)
     return result

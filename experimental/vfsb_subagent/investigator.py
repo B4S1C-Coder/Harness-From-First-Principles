@@ -26,9 +26,16 @@ class InvestigationExecutor(ToolExecutor):
     ) -> None:
         super().__init__(logger, tools)
         self.visible = visible
+        self.seen: set[tuple[str, str]] = set()
 
     @override
     def execute(self, name: str, args: dict[str, Any]) -> str:
+        key = (name, json.dumps(args, sort_keys=True))
+        if key in self.seen:
+            return json.dumps(
+                {"success": True, "data": {"see": "Identical call already made; result above"}}
+            )
+        self.seen.add(key)
         if (
             name in log_preamble.DEFAULT_CALLS
             and args == log_preamble.DEFAULT_CALLS[name]
@@ -56,8 +63,12 @@ class InvestigationAgent(SCMTTAgent[InvestigationConfig]):
 
     @override
     def add_user_message(self, content: str) -> None:
-        if content and len(self.messages) == 1:
-            self._seed(content)
+        if content:
+            self.executor.seen.clear()
+            if len(self.messages) == 1:
+                self._seed(content)
+                # Opening evidence may be clipped. Only model-issued calls count for this run.
+                self.executor.seen.clear()
         super().add_user_message(content)
 
     def _seed(self, question: str) -> None:

@@ -67,9 +67,10 @@ EVIDENCE_COLUMNS = (
 class SQLiteLogs:
     schema = (
         "logs(filename TEXT, line INTEGER, raw TEXT, timestamp TEXT, level"
-        " TEXT, thread TEXT, logger TEXT, message TEXT). timestamp format "
+        " TEXT, thread TEXT, logger TEXT, message TEXT, effective_ts TEXT). timestamp format "
         "YYYY-MM-DD HH:MM:SS,mmm; line is 1-based. Unparsed fields are NUL"
-        "L. SQL function tmpl(message) masks numbers/ids/IPs so similar mes"
+        "L. effective_ts inherits the preceding timestamp in the file. "
+        "SQL function tmpl(message) masks numbers/ids/IPs so similar mes"
         "sages share one value; use it to GROUP BY message type."
     )
 
@@ -82,21 +83,23 @@ class SQLiteLogs:
             self.connection.execute(
                 
                     "CREATE TABLE logs(filename TEXT, line INTEGER, raw TEXT, timestam"
-                    "p TEXT, level TEXT, thread TEXT, logger TEXT, message TEXT)"
+                    "p TEXT, level TEXT, thread TEXT, logger TEXT, message TEXT, effective_ts TEXT)"
                 
             )
             for path in sorted(workspace.glob("app-*.log")):
+                effective_ts = None
                 with path.open(encoding="utf-8", errors="replace", newline="") as source:
                     for number, raw in enumerate(source, 1):
                         match = LOG_PATTERN.match(raw.rstrip("\r\n"))
                         parsed = list(match.groups()) if match else [None] * 5
                         if parsed[0]:
                             parsed[0] = parsed[0].replace(".", ",")
+                            effective_ts = parsed[0]
                         self.connection.execute(
-                            "INSERT INTO logs VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                            (path.name, number, raw, *parsed),
+                            "INSERT INTO logs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            (path.name, number, raw, *parsed, effective_ts),
                         )
-            for columns in ("timestamp", "level", "filename, line"):
+            for columns in ("timestamp", "effective_ts", "level", "filename, line"):
                 self.connection.execute(
                     f"CREATE INDEX idx_{columns.split(',')[0]} ON logs ({columns})"
                 )
@@ -172,8 +175,8 @@ class SQLiteLogs:
     ) -> tuple[str, tuple[Any, ...]]:
         clauses, parameters = [], []
         for column, operator, value in (
-            ("timestamp", ">=", start),
-            ("timestamp", "<=", end),
+            ("effective_ts", ">=", start),
+            ("effective_ts", "<=", end),
             ("level", "=", level),
             ("filename", "=", filename),
         ):
@@ -195,7 +198,8 @@ class SQLiteLogs:
     ) -> QueryResult:
         where, parameters = self._search_filter(start, end, level, filename, keyword)
         return self.query(
-            f"SELECT {EVIDENCE_COLUMNS} FROM logs WHERE {where} ORDER BY timestamp, filename, line",
+            f"SELECT {EVIDENCE_COLUMNS} FROM logs WHERE {where}"
+            " ORDER BY effective_ts, filename, line",
             parameters,
             max_bytes=SEARCH_BYTES,
         )
@@ -291,7 +295,7 @@ class SQLiteLogs:
     def nearby(self, filename: str, line: int, radius: int = 3) -> QueryResult:
         return self.query(
             f"SELECT {EVIDENCE_COLUMNS} FROM logs"
-            " WHERE filename = ? AND line BETWEEN ? AND ? ORDER BY line",
+            " WHERE filename = ? AND line BETWEEN ? AND ? ORDER BY effective_ts, line",
             (filename, max(1, line - radius), line + radius),
         )
 

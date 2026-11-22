@@ -137,10 +137,10 @@ def test_resume_keeps_valid_final_line_and_rejects_corruption(
         ("NoRouteToHostException while writing", Label.NETWORK_DISCONNECTION),
         ("No evidence of machine failure. No space left on device.", Label.DISK_FULL),
         ("disk_full", Label.DISK_FULL),
-        ("Inconclusive.", Label.NORMAL),
+        ("Inconclusive.", "unclassified"),
     ],
 )
-def test_keyword_rules(text: str, expected: Label) -> None:
+def test_keyword_rules(text: str, expected: str) -> None:
     assert scorer.classify(text) == expected
 
 
@@ -163,7 +163,7 @@ def test_score_cli(
             zip(
                 Label,
                 [
-                    "Normal run",
+                    "Inconclusive.",
                     "Network disconnection",
                     "Normal run",
                     "Disk full",
@@ -178,12 +178,13 @@ def test_score_cli(
     scorer.main()
     scores = json.loads(capsys.readouterr().out)
     assert scores["jobs"] == 4
-    assert scores["exact_accuracy"] == 0.5 and scores["coarse_accuracy"] == 0.75
+    assert scores["exact_accuracy"] == 0.25 and scores["coarse_accuracy"] == 0.5
     assert scores["mean_tokens"] == 27.5 and scores["mean_requests"] == 2.5
     assert scores["mean_seconds"] == 1.25
     matrix = scores["confusion_matrix"]
-    assert matrix["machine_down"]["network_disconnection"] == 1
-    assert matrix["network_disconnection"]["machine_down"] == 0
+    assert matrix["machine_down"]["network_disconnection"] == 0
+    assert matrix["unclassified"]["normal"] == 1
+    assert matrix["network_disconnection"]["machine_down"] == 1
     assert all(set(row) == set(Label) for row in matrix.values())
     assert scorer.score([]).exact_accuracy is None
 

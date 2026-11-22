@@ -56,12 +56,19 @@ class SearchLogsTool(LogOverviewTool):
 
     def driver(self, args: dict[str, Any]) -> dict:
         matches = [self.backend.search(**query) for query in args["queries"]]
-        totals = [self.backend.count_matches(**query) for query in args["queries"]]
+        counts = []
+        for query, match in zip(args["queries"], matches, strict=True):
+            count = {"total_matches": self.backend.count_matches(**query)}
+            if not match.rows and query["keyword"] is not None:
+                count["keyword_matches_all_logs"] = self.backend.count_matches(
+                    keyword=query["keyword"]
+                )
+            counts.append(count)
         if len(matches) == 1:
-            return {**asdict(matches[0]), "total_matches": totals[0]}
+            return {**asdict(matches[0]), **counts[0]}
         groups = [
-            {"rows": [], "truncated": match.truncated, "total_matches": total}
-            for match, total in zip(matches, totals, strict=True)
+            {"rows": [], "truncated": match.truncated, **count}
+            for match, count in zip(matches, counts, strict=True)
         ]
         response = {"columns": matches[0].columns, "results": groups}
         # Allocate one row per query per round, preserving each query's chronological prefix.

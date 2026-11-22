@@ -51,13 +51,13 @@ timer waits 60 seconds after each provider call before issuing the next. On a fa
 the runner stops and preserves finished jobs. A POSIX file lock serializes writers to the same
 JSONL. Resume recovers an interrupted final append and rejects malformed completed records.
 
-The scorer writes JSON to stdout. Confusion matrix rows are shipped labels and columns are
-predictions. Exact accuracy uses all four classes. Coarse accuracy groups machine down and
+The scorer writes JSON to stdout. Confusion matrix rows are predictions and columns are
+shipped labels. Exact accuracy uses all four classes. Coarse accuracy groups machine down and
 network disconnection as connectivity, disk full as disk, and normal as none. Mean tokens
 include prompt and completion tokens. Empty inputs give a zero matrix and null averages and
 accuracies. Until structured findings are available, the scorer uses the first matching
-affirmative keyword in the report, skips simple negations, and defaults to normal. An
-inconclusive report can therefore score as normal.
+affirmative keyword in the report, skips simple negations, and counts unmatched reports as unclassified.
+An unclassified prediction scores zero on both accuracy measures.
 
 # The Ask
 A Hadoop MapReduce application experienced failures during job execution. Relevant application logs are available to your log-analysis specialist. Investigate the logs, reconstruct the sequence of failures, identify the most likely underlying issue, and explain which errors may be secondary symptoms. Cite specific log timestamps and messages. Do not claim a definitive root cause if the evidence is insufficient.

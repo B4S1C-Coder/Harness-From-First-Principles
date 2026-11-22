@@ -32,7 +32,7 @@ COARSE = {
 }
 
 
-def classify(report: str) -> Label:
+def classify(report: str) -> str:
     text = report.casefold().replace("_", " ").replace("-", " ").replace("*", "")
     first: tuple[int, Label] | None = None
     for label, pattern in KEYWORDS.items():
@@ -42,13 +42,13 @@ def classify(report: str) -> Label:
             if first is None or match.start() < first[0]:
                 first = match.start(), label
             break
-    return first[1] if first else Label.NORMAL
+    return first[1] if first else "unclassified"
 
 
 @dataclass(frozen=True)
 class Scores:
     jobs: int
-    confusion_matrix: dict[Label, dict[Label, int]]
+    confusion_matrix: dict[str, dict[Label, int]]
     exact_accuracy: float | None
     coarse_accuracy: float | None
     mean_tokens: float | None
@@ -58,13 +58,13 @@ class Scores:
 
 def score(records: Iterable[Record]) -> Scores:
     rows = list(records)
-    matrix = {truth: dict.fromkeys(Label, 0) for truth in Label}
+    matrix = {prediction: dict.fromkeys(Label, 0) for prediction in (*Label, "unclassified")}
     exact = coarse = 0
     for row in rows:
         predicted = classify(row.report)
-        matrix[row.label][predicted] += 1
+        matrix[predicted][row.label] += 1
         exact += predicted == row.label
-        coarse += COARSE[predicted] == COARSE[row.label]
+        coarse += COARSE.get(predicted) == COARSE[row.label]
     n = len(rows)
     return Scores(
         n,
