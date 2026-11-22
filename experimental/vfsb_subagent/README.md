@@ -1,3 +1,64 @@
+# Investigation startup
+
+The first question in a conversation receives one opening evidence message. The harness runs the unfiltered digest, built-in signature scan, and timeline, then collects one line of nearby context on either side of up to eight source anchors. It selects the first fatal-level event, the start of the earliest episode, and the first ERROR for each full logger name and normalized message template. The pack records overlap, omissions, and clipped windows. The investigator can use targeted tools for remaining gaps. Follow-up questions reuse the conversation.
+
+After changing the investigator prompt, register its latest version with `uv run python -m experimental.vfsb_subagent.prompts` before launching `uv run python -m experimental.vfsb_subagent.run`.
+
+## Evaluate labeled Loghub Hadoop jobs
+
+The inspected archive has a root-level `README.md`, `abnormal_label.txt`, and 55 sibling
+`application_<timestamp>_<sequence>/` directories. The 978 logs sit directly inside those
+directories, with 12–31 per job. For example, `application_1445062781478_0011/` contains
+`container_1445062781478_0011_01_000001.log`. Log headers contain a timestamp with comma
+milliseconds, severity, bracketed thread, fully qualified logger, and message. Java stack
+traces span additional physical lines. [Upstream Hadoop archive](https://zenodo.org/records/8196385/files/Hadoop.zip?download=1)
+
+The label file is CRLF-delimited text. An introductory paragraph precedes the Markdown
+headings `### WordCount` and `### PageRank`. Each workload has four class headings ending in a
+colon. Under each heading, every `+ application_…` line assigns one complete application ID
+to that class. Blank lines separate groups. The counts below use the shipped labels.
+[Upstream discussion of disputed PageRank labels](https://github.com/logpai/loghub/issues/56)
+
+| Workload | Normal | Machine down | Network disconnection | Disk full | Jobs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| WordCount | 3 | 13 | 4 | 5 | 25 |
+| PageRank | 8 | 15 | 3 | 4 | 30 |
+| Total | 11 | 28 | 7 | 9 | 55 |
+
+Extract the archive under `experimental/data/loghub_hadoop/` or pass the directory containing
+the label file via `--dataset`. Register the investigator prompt as described above. The runner
+uses the interactive agent's provider configuration and models.
+
+```bash
+uv run python -m experimental.vfsb_subagent.eval.runner --limit 1
+uv run python -m experimental.vfsb_subagent.eval.scorer experimental/data/hadoop-results.jsonl
+```
+
+The runner takes jobs in label-file order. Reuse the same `--output` path to resume. The limit
+counts additional jobs and omitting it processes all remaining jobs. Each job gets a fresh
+agent and temporary workspace. To locate a cited source line in the archive, remove the
+`app-` prefix from the cited filename and open that container log in the job directory.
+
+Each completed job appends one JSON line with `job_id`, `label`, `report`, `prompt_tokens`,
+`completion_tokens`, `requests`, `tool_turns`, and `seconds`. Requests count logical generation
+attempts across the investigator, compaction, and SQL helper. If the provider rejects a
+text-only response with `tool_use_failed`, the evaluator retries once with the prior tool exchange
+quoted as data. This retry counts as a request. Token totals cover responses with reported usage.
+SDK-internal HTTP retries are opaque.
+Tool turns count assistant batches. Elapsed time covers the turn from opening evidence collection
+to the final answer, including pacing, model calls, and retries. For the 8k TPM tier, one shared
+timer waits 60 seconds after each provider call before issuing the next. On a failed turn,
+the runner stops and preserves finished jobs. A POSIX file lock serializes writers to the same
+JSONL. Resume recovers an interrupted final append and rejects malformed completed records.
+
+The scorer writes JSON to stdout. Confusion matrix rows are predictions and columns are
+shipped labels. Exact accuracy uses all four classes. Coarse accuracy groups machine down and
+network disconnection as connectivity, disk full as disk, and normal as none. Mean tokens
+include prompt and completion tokens. Empty inputs give a zero matrix and null averages and
+accuracies. Until structured findings are available, the scorer uses the first matching
+affirmative keyword in the report, skips simple negations, and counts unmatched reports as unclassified.
+An unclassified prediction scores zero on both accuracy measures.
+
 # The Ask
 A Hadoop MapReduce application experienced failures during job execution. Relevant application logs are available to your log-analysis specialist. Investigate the logs, reconstruct the sequence of failures, identify the most likely underlying issue, and explain which errors may be secondary symptoms. Cite specific log timestamps and messages. Do not claim a definitive root cause if the evidence is insufficient.
 
@@ -187,4 +248,4 @@ Run a **network‑reachability check** (e.g., `telnet msra‑sa‑41 9000` or `n
 User> 2026-11-17 15:22:54,801 | INFO     | cbddaa6bf85b4139a821ae18760c606b | app.137147992056576.application | Input tok; 4910, Cached tok: 0
 exit
 ```
-After incident_digest, scan_signatures tests the built-in catalog and optional custom literal alternatives. Use timeline for warning and failure episodes and nearby_logs(refs, radius) to verify several source anchors together.
+After incident_digest, scan_signatures tests the built-in catalog (including Hadoop lease-renew, RM-contact, address-change-without-IP and loopback-host patterns) and optional custom signatures. A custom signature is one mechanism; its alternatives are spellings of the same message and each gets its own count (`custom_alternative_counts`). Only matching signatures are returned in full; names with no matches are listed under `zero`, and `first_ref` is `filename:line`. timeline returns warning and failure episodes as `[level, logger, count, first, last, ref, message]` rows (first/last are within the episode; null start/end cover the whole corpus). FATAL messages keep up to 400 characters, a message type already shown is shortened in later episodes, lowest-severity groups are dropped first when the 4 KiB budget is exceeded, and `next_start` says where to resume if episodes were omitted. search_logs returns `total_matches`, the full count behind the (at most 20) returned rows. Use nearby_logs(refs, radius) to verify several source anchors together.

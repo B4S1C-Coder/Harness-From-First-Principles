@@ -5,6 +5,7 @@ from dataclasses import asdict
 from typing import Any
 
 from . import log_evidence
+from .log_pivots import MAX_PIVOTS
 from harness.tools import BaseTool, ToolRegistry
 from experimental.vfsb_subagent.log_backend import SEARCH_BYTES, SQLiteLogs
 from experimental.vfsb_subagent.query_helper import QueryHelper
@@ -31,7 +32,8 @@ class SearchLogsTool(LogOverviewTool):
     description = (
         "Batch independent searches in one call. Each query uses inclusive times, exact file "
         "and level, and a case-sensitive literal keyword. Null disables a filter. Results "
-        "follow query order. One query returns rows directly. Up to 20 rows each, 5 KiB total."
+        "follow query order. One query returns rows directly. Up to 20 rows each, 5 KiB total. "
+        "total_matches is the full count, so do not search just to count."
     )
     query_schema = {
         "type": "object",
@@ -54,9 +56,20 @@ class SearchLogsTool(LogOverviewTool):
 
     def driver(self, args: dict[str, Any]) -> dict:
         matches = [self.backend.search(**query) for query in args["queries"]]
+        counts = []
+        for query, match in zip(args["queries"], matches, strict=True):
+            count = {"total_matches": self.backend.count_matches(**query)}
+            if not match.rows and query["keyword"] is not None:
+                count["keyword_matches_all_logs"] = self.backend.count_matches(
+                    keyword=query["keyword"]
+                )
+            counts.append(count)
         if len(matches) == 1:
-            return asdict(matches[0])
-        groups = [{"rows": [], "truncated": match.truncated} for match in matches]
+            return {**asdict(matches[0]), **counts[0]}
+        groups = [
+            {"rows": [], "truncated": match.truncated, **count}
+            for match, count in zip(matches, counts, strict=True)
+        ]
         response = {"columns": matches[0].columns, "results": groups}
         # Allocate one row per query per round, preserving each query's chronological prefix.
         for index in range(max(len(match.rows) for match in matches)):
@@ -82,7 +95,7 @@ class NearbyLogsTool(LogOverviewTool):
             "refs": {
                 "type": "array",
                 "minItems": 1,
-                "maxItems": 8,
+                "maxItems": MAX_PIVOTS,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -107,8 +120,10 @@ class NearbyLogsTool(LogOverviewTool):
 class ScanSignaturesTool(LogOverviewTool):
     name = "scan_signatures"
     description = (
-        "Count lines per signature, including zeros. Pass custom=[] for the built-in catalog. "
-        "Custom signatures match any case-insensitive literal alternative."
+        "Count lines per failure signature; zero-count names are listed under zero. Pass "
+        "custom=[] for the built-in catalog. A custom entry is ONE mechanism: its alternatives "
+        "are spellings of the same message (case-insensitive literals), not different "
+        "hypotheses, and each alternative's count is returned. Never combine mechanisms."
     )
     parameters = {
         "type": "object",
@@ -144,14 +159,17 @@ class ScanSignaturesTool(LogOverviewTool):
 class TimelineTool(LogOverviewTool):
     name = "timeline"
     description = (
-        "Ordered warning and failure episodes within inclusive timestamps. "
-        "Null filename includes all files."
+        "Ordered warning and failure episodes (non-INFO) with per-group count and first/last "
+        "timestamp within the episode, ref file:line and message. Null start/end/filename mean "
+        "no limit. A message type already shown is shortened in later episodes. If groups or "
+        "episodes are omitted (lowest severity first), narrow the window or re-run with "
+        "start=next_start."
     )
     parameters = {
         "type": "object",
         "properties": {
-            "start": {"type": "string"},
-            "end": {"type": "string"},
+            "start": {"type": ["string", "null"]},
+            "end": {"type": ["string", "null"]},
             "filename": {"type": ["string", "null"]},
         },
         "required": ["start", "end", "filename"],
@@ -188,7 +206,7 @@ class AdvancedLogAnalysisTool(BaseTool):
 class IncidentDigestTool(BaseTool):
     name = "incident_digest"
     description = (
-        "START HERE. Deterministic map of the logs: non-INFO lines grouped into message types "
+        "Narrow the opening digest: non-INFO lines grouped into message types "
         "(numbers, ids, IPs ignored when grouping). Returns corpus size and time range, line "
         "counts by level, and per group: count, files, first/last timestamp, first_ref "
         "(file:line, for nearby_logs) and message (verbatim text of the FIRST occurrence; later "

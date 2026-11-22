@@ -15,6 +15,7 @@ DIGEST_BYTES = 5000
 # Reserved for the `omitted` block, which is added after rows are chosen.
 _OMITTED_RESERVE = 260
 MAX_MESSAGE_CHARS = 200
+FATAL_MESSAGE_CHARS = 400  # a fatal line usually carries the exception text; keep more of it
 QUIET_LEVELS = ("INFO", "DEBUG", "TRACE")
 SEVERITY = {"FATAL": 3, "CRITICAL": 3, "SEVERE": 3, "ERROR": 2}  # anything else ranks 1 (WARN, ...)
 COLUMNS = ["level", "logger", "count", "files", "first", "last", "first_ref", "message"]
@@ -101,7 +102,12 @@ def build_digest(
                     first,
                     last,
                     f"{filename}:{int(line)}",
-                    _clip(message.strip()),
+                    _clip(
+                        message.strip(),
+                        FATAL_MESSAGE_CHARS
+                        if SEVERITY.get((level or "").upper(), 1) == 3
+                        else MAX_MESSAGE_CHARS,
+                    ),
                 ],
                 "first": (first, filename, line),
             }
