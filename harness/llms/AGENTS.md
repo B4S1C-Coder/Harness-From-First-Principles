@@ -4,7 +4,8 @@
 - Synchronous, non-streaming, text-only client for OpenAI-compatible Chat Completions.
 
 ## Public interface
-- `from harness.llms import SyncTextLLMClient`.
+- Export `SyncTextLLMClient` and `TextOnlyRetryClient`.
+- `TextOnlyRetryClient(client: SyncTextLLMClient)` subclasses `SyncTextLLMClient` and wraps the supplied instance. Model reads, model assignments, and connection checks delegate to that instance.
 - `SyncTextLLMClient(model: str | None = None, api_key: str | None = None, provider_url: str | None = None, max_retries: int = 2) -> None`; `max_retries` is the OpenAI SDK's automatic retry count (it honors the provider's Retry-After), worth raising on tight tokens-per-minute tiers.
 - `client.model: str` selects the model for generation and can be reassigned.
 - `client.check_connection()` returns the provider's model listing; no return annotation.
@@ -21,6 +22,8 @@
 - SDK errors not covered by the decorator propagate unchanged.
 - Translated errors retain the original exception as their cause.
 
+- With tools disabled, the wrapper retries once on `BadRequestError` code `tool_use_failed`, directly raised or preserved as the cause of `UnexpectedResponseError`. The retry quotes tool exchanges as data in a temporary message list and requests a prose answer. Both attempts go through the wrapped client, preserving its pacing and accounting. The wrapper uses `guarded_execution` for generation and connection checks. A final SDK error follows the same translation rules as the base client, with its cause preserved.
+
 ## Dependencies
 - `harness.helpers.load_env` for configuration.
 - `harness.exceptions` for framework errors.
@@ -28,7 +31,7 @@
 - Within `harness`, depend only on `helpers` and `exceptions`. Ask before importing any other harness package.
 
 ## Testing
-- No automated tests for this package. Don't add tests that hit a real provider.
+- Run `uv run pytest tests/test_text_only_retry.py -v` with fake clients.
 
 ## Gotchas
 - `harness.exceptions.TimeoutError` and `ConnectionError` shadow the Python builtins. Always import them explicitly from `harness.exceptions`; never catch or raise the builtins in framework code.
