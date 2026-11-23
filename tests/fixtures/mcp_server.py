@@ -21,6 +21,9 @@ def main() -> None:
     watchdog = threading.Timer(4, os._exit, args=(9,))
     watchdog.daemon = True
     watchdog.start()
+    if os.getenv("BAD_START"):
+        sys.stderr.write("x" * 12000 + " secret-token: final diagnostic\n")
+        sys.exit(1)
     init = receive()
     assert init["method"] == "initialize" and init["params"]["capabilities"] == {}
     send(id="ping", method="ping")
@@ -29,7 +32,7 @@ def main() -> None:
     send(
         id=init["id"],
         result={
-            "protocolVersion": init["params"]["protocolVersion"],
+            "protocolVersion": os.getenv("TEST_REVISION", init["params"]["protocolVersion"]),
             "capabilities": {"tools": {}},
             "serverInfo": {"name": "fixture", "version": "1"},
         },

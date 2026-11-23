@@ -9,6 +9,10 @@ from harness.logger import ApplicationLogger
 from harness.tools import ExternalTool
 from .client import StdioClient, VERSION
 from .config import ServerConfig
+from .http_client import HTTPClient
+
+Client = StdioClient | HTTPClient
+SUPPORTED_VERSIONS = (VERSION, "2025-06-18", "2025-03-26")
 
 
 def _alias(server: str, tool: str) -> str:
@@ -18,7 +22,7 @@ def _alias(server: str, tool: str) -> str:
 
 
 class RemoteTool(ExternalTool):
-    def __init__(self, client: StdioClient, spec: dict) -> None:
+    def __init__(self, client: Client, spec: dict) -> None:
         self.client = client
         self.remote_name = spec["name"]
         self.name = _alias(client.name, self.remote_name)
@@ -66,7 +70,19 @@ class RemoteTool(ExternalTool):
         blocks = result.get("content")
         if not isinstance(blocks, list) or not all(isinstance(b, dict) for b in blocks):
             raise err.UnexpectedResponseError(self.client.name)
-        parts = [b.get("text") if b.get("type") == "text" else "[non-text content]" for b in blocks]
+        parts = []
+        for block in blocks:
+            resource = block.get("resource")
+            if block.get("type") == "text":
+                parts.append(block.get("text"))
+            elif (
+                block.get("type") == "resource"
+                and isinstance(resource, dict)
+                and isinstance(resource.get("text"), str)
+            ):
+                parts.append(resource["text"])
+            else:
+                parts.append("[non-text content]")
         if not all(isinstance(p, str) for p in parts):
             raise err.UnexpectedResponseError(self.client.name)
         return self._bounded("\n".join(parts), result.get("isError", False))
@@ -76,14 +92,20 @@ class MCPRuntime:
     def __init__(self, config: dict[str, ServerConfig], logger: ApplicationLogger) -> None:
         self.config = config
         self.logger = logger
-        self.clients: list[StdioClient] = []
+        self.clients: list[Client] = []
         self.tools: list[RemoteTool] = []
 
     def __enter__(self) -> Self:
+        client = None
         aliases: dict[str, tuple[str, str]] = {}
         try:
             for name, config in self.config.items():
-                client = StdioClient(name, config)
+                client = None
+                client = (
+                    HTTPClient(name, config)
+                    if config.url
+                    else StdioClient(name, config, self.logger)
+                )
                 self.clients.append(client)
                 deadline = time.monotonic() + config.timeout_seconds
                 init = client.request(
@@ -96,15 +118,18 @@ class MCPRuntime:
                     deadline,
                 )
                 capabilities = init.get("capabilities")
-                if (
-                    init.get("protocolVersion") != VERSION
-                    or not isinstance(capabilities, dict)
-                    or not isinstance(capabilities.get("tools"), dict)
+                version = init.get("protocolVersion")
+                if version not in SUPPORTED_VERSIONS:
+                    raise err.UnexpectedResponseError(
+                        name, f"Unsupported MCP revision {version!r}."
+                    )
+                if not isinstance(capabilities, dict) or not isinstance(
+                    capabilities.get("tools"), dict
                 ):
                     raise err.UnexpectedResponseError(
                         name, "Incompatible protocol or capabilities."
                     )
-                client.send(method="notifications/initialized")
+                client.initialized(version, deadline)
                 available = set()
                 kept = []
                 cursors = set()
@@ -150,6 +175,11 @@ class MCPRuntime:
                     "%s: kept %d MCP tools (%d definition bytes)", name, len(kept), size
                 )
             return self
+        except err.ApplicationException as exc:
+            self.close()
+            if isinstance(client, StdioClient):
+                client.add_diagnostic(exc)
+            raise
         except BaseException:
             self.close()
             raise

@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import threading
 import time
@@ -7,6 +8,7 @@ from queue import Queue, Full
 from typing import Any
 
 from harness import exceptions as err
+from harness.logger import ApplicationLogger
 from .config import ServerConfig
 
 VERSION = "2025-11-25"
@@ -16,19 +18,27 @@ FRAME_LIMIT = 8 * 1024 * 1024
 class StdioClient:
     """One synchronous caller, with independent pipe workers for replies and pings."""
 
-    def __init__(self, name: str, config: ServerConfig) -> None:
+    def __init__(self, name: str, config: ServerConfig, logger: ApplicationLogger) -> None:
         self.name = name
         self.config = config
+        self.logger = logger
         env = {
             k: os.environ[k] for k in ("PATH", "SystemRoot", "HOME", "TMPDIR") if k in os.environ
         }
+        env.update(config.env)
+        assert config.command is not None
+        executable = shutil.which(config.command, path=env.get("PATH"))
+        if executable is None:
+            raise err.ConnectionError(name)
+        self.stderr_tail = bytearray()
+        self.stderr_done = threading.Event()
         try:
             self.process = subprocess.Popen(
-                [config.command, *config.args],
-                env=env | config.env,
+                [executable, *config.args],
+                env=env,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 bufsize=0,
             )
         except (OSError, ValueError) as exc:
@@ -40,11 +50,54 @@ class StdioClient:
         self.failure: err.ApplicationException | None = None
         self.sequence = 0
         self.reply: dict | None = None
-        self.workers = [threading.Thread(target=f, daemon=True) for f in (self._read, self._write)]
+        self.workers = [
+            threading.Thread(target=f, daemon=True) for f in (self._stderr, self._read, self._write)
+        ]
         for worker in self.workers:
             worker.start()
 
+    def _stderr(self) -> None:
+        assert self.process.stderr is not None
+        try:
+            with self.process.stderr as pipe:
+                while chunk := pipe.read(4096):
+                    self.stderr_tail.extend(chunk)
+                    del self.stderr_tail[:-4096]
+        finally:
+            self.stderr_done.set()
+
+    def diagnostic(self) -> str:
+        self.stderr_done.wait(0.05)
+        data = bytes(self.stderr_tail)
+        for value in self.config.env.values():
+            if value:
+                secret = value.encode()
+                data = data.replace(secret, b"[redacted]")
+                # Mask partial secrets at the two edges of the rolling buffer too.
+                for n in range(min(len(secret) - 1, len(data)), 0, -1):
+                    if data.startswith(secret[-n:]):
+                        data = b"[redacted]" + data[n:]
+                        break
+                for n in range(min(len(secret) - 1, len(data)), 0, -1):
+                    if data.endswith(secret[:n]):
+                        data = data[:-n] + b"[redacted]"
+                        break
+        return data.decode(errors="replace")[-1024:].strip()
+
+    def add_diagnostic(self, exc: err.ApplicationException) -> None:
+        if " (stderr: " in exc.message:
+            return
+        if tail := self.diagnostic():
+            self.logger.debug("%s MCP stderr: %s", self.name, tail)
+            exc.message += f" (stderr: {tail})"
+            exc.args = (exc.message,)
+
+    def initialized(self, version: str, deadline: float) -> None:
+        self.send(method="notifications/initialized")
+
     def _fail(self, exc: err.ApplicationException) -> None:
+        if isinstance(exc, err.ConnectionError) and not self.closed:
+            self.add_diagnostic(exc)
         with self.condition:
             self.failure = self.failure or exc
             self.condition.notify_all()

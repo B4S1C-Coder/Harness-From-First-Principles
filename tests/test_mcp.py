@@ -105,3 +105,44 @@ def test_empty_schema_and_long_alias(app_logger: ApplicationLogger) -> None:
         (tool,) = active.tools
         assert tool.name.endswith("__read_it") and len(tool.name) == 64
         assert tool.parameters == {"type": "object", "properties": {}}
+
+
+@pytest.mark.parametrize("revision", ["2025-03-26", "2025-06-18", "unknown"])
+def test_stdio_revision(revision: str, app_logger: ApplicationLogger) -> None:
+    active = runtime(app_logger, "read.it")
+    active.config["srv"].env["TEST_REVISION"] = revision
+    if revision == "unknown":
+        with (
+            pytest.raises(exceptions.UnexpectedResponseError, match="Unsupported MCP revision"),
+            active,
+        ):
+            pass
+    else:
+        with active:
+            assert active.tools
+
+
+def test_stdio_diagnostic(app_logger: ApplicationLogger) -> None:
+    active = runtime(app_logger, "read.it")
+    active.config["srv"].env.update({"BAD_START": "1", "TOKEN": "secret-token"})
+    with pytest.raises(exceptions.ConnectionError, match="final diagnostic") as caught, active:
+        pass
+    assert "secret-token" not in str(caught.value) and len(str(caught.value)) < 1200
+
+
+def test_resolve_command(app_logger: ApplicationLogger, monkeypatch: pytest.MonkeyPatch) -> None:
+    import shutil
+    from dataclasses import replace
+
+    active = runtime(app_logger, "read.it")
+    active.config["srv"] = replace(
+        active.config["srv"], command="test-command", env={"PATH": "test-path"}
+    )
+
+    def resolve(cmd: str, path: str) -> str:
+        assert cmd == "test-command" and path == "test-path"
+        return sys.executable
+
+    monkeypatch.setattr(shutil, "which", resolve)
+    with active:
+        assert active.tools

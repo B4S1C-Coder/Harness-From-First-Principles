@@ -25,3 +25,16 @@ with MCPRuntime(load_mcp_config("servers.json"), logger) as runtime:
 ```
 
 Each server accepts timeout_seconds (default 10) and max_result_bytes (default 4096).
+
+For a hosted server, use a URL and static headers. This GitHub example exposes
+one read-only tool and reads its bearer token from the environment.
+
+```json
+{"servers":{"github":{"url":"https://api.githubcopilot.com/mcp/",
+  "headers":{"Authorization":"Bearer ${GITHUB_TOKEN}"},
+  "allowlist":["issue_read"]}}}
+```
+
+HTTP endpoints require HTTPS except on localhost and 127.0.0.1. Authentication
+uses static headers only. OAuth flows are unsupported. A timeout marks the
+connection dead. Reopen the runtime after a timeout or expired session.
