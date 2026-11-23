@@ -6,7 +6,11 @@ client = SyncTextLLMClient(model="openai/gpt-oss-20b")
 
 msgs = [
     {"role": "system", "content": "You are concise."},
-    {"role": "user", "content": "A train leaves at 3:40pm and the trip takes 2h 55m. When does it arrive? Think it through."},
+    {
+        "role": "user",
+        "content": "A train leaves at 3:40pm and the"
+        "trip takes 2h 55m. When does it arrive? Think it through."
+    },
 ]
 resp, _, _ = client.generate_next([], msgs)
 m = resp.choices[0].message
