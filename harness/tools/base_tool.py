@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+
 class BaseTool(ABC):
     name: str
     description: str
@@ -8,12 +9,12 @@ class BaseTool(ABC):
 
     @abstractmethod
     def driver(self, args: dict[str, Any]) -> dict[str, Any]:
-        """ Executes the tool. """
+        """Executes the tool."""
         ...
 
     @classmethod
     def definition(cls) -> dict[str, Any]:
-        """ Returns the tool definition based on OpenAI Format. """
+        """Returns the tool definition based on OpenAI Format."""
 
         return {
             "type": "function",
@@ -22,5 +23,18 @@ class BaseTool(ABC):
                 "description": cls.description,
                 "parameters": cls.parameters,
                 "strict": True,
+            },
+        }
+
+
+class ExternalTool(BaseTool):
+    def instance_definition(self) -> dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters,
+                "strict": False,
             },
         }

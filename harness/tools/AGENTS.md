@@ -4,7 +4,7 @@
 - Define tool schemas, register tool classes, and validate and execute explicitly bound tool instances.
 
 ## Public interface
-- Package exports: `BaseTool`, `ToolRegistry`, `ToolExecutor`, `ToolExecutionLimits`.
+- Package exports: `BaseTool`, `ExternalTool`, `ToolRegistry`, `ToolExecutor`, `ToolExecutionLimits`.
 - `BaseTool`: subclasses supply `name: str`, `description: str`, `parameters: dict[str, Any]`.
 - `BaseTool.driver(self, args: dict[str, Any]) -> dict[str, Any]` is abstract.
 - `BaseTool.definition() -> dict[str, Any]` is a classmethod returning an OpenAI function definition with `strict=True`.
@@ -18,7 +18,7 @@
 - Registry registration stores classes globally by name, returns the class, and raises `ValueError` for duplicate names.
 - Limits must be positive; otherwise construction raises `ValueError`.
 - Known deviation: the `ValueError`s above should become `harness/exceptions.py` types. Don't copy this pattern in new code.
-- Executor callers supply instances whose names are registered; construction raises `UnregisteredToolError` or `DuplicateToolError` for invalid bindings.
+- Ordinary bound instances must have registered names; construction raises `UnregisteredToolError` or `DuplicateToolError` for invalid bindings.
 - Invalid tool schemas raise at construction.
 - Execution requires dictionary arguments serializable with `allow_nan=False`, within the UTF-8 byte limit, and valid against the instance schema.
 - Unavailable tools and rejected arguments return JSON errors without calling the driver.
@@ -35,10 +35,17 @@
 - `uv run pytest tests/test_tool_executor.py tests/test_registry_register_tools.py -v`
 
 ## Gotchas
-- Registry membership is checked by name, not class identity; definitions come from registered classes, validators from supplied instances.
+- Registry membership is checked by name, not class identity; ordinary tool definitions come from registered classes, validators from supplied instances.
 - `definitions()` returns the executor's internal mapping directly; definition parameter dictionaries are not copied.
 - Registration does not instantiate tools.
 
 ## Known issues
 - Registry/limits `ValueError`s should use `harness/exceptions.py` (low priority).
 - Oversized-response fallback isn't checked against `max_result_bytes`.
+
+## External instances
+
+ExternalTool is an exported BaseTool subclass. Explicitly bound external instances use
+instance_definition() with strict=False and bypass class registration. Both kinds share
+the same duplicate binding checks, argument limits and instance-schema validation.
+The registered-name and class-definition rules above apply to ordinary tools.

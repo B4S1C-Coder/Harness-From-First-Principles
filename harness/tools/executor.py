@@ -6,7 +6,8 @@ from typing import Any
 from jsonschema import Draft202012Validator, ValidationError
 from ..logger import ApplicationLogger
 from .. import exceptions
-from . import BaseTool, ToolRegistry
+from . import BaseTool, ExternalTool, ToolRegistry
+
 
 @dataclass(frozen=True)
 class ToolExecutionLimits:
@@ -17,13 +18,14 @@ class ToolExecutionLimits:
         if self.max_argument_bytes <= 0 or self.max_result_bytes <= 0:
             raise ValueError("Tool execution limits must be positive.")
 
+
 class ToolExecutor:
     def __init__(
         self,
         logger: ApplicationLogger,
         tools: Iterable[BaseTool],
         *,
-        limits: ToolExecutionLimits | None = None
+        limits: ToolExecutionLimits | None = None,
     ) -> None:
 
         self._tools: dict[str, BaseTool] = {}
@@ -38,7 +40,7 @@ class ToolExecutor:
         for tool in tools:
             name = tool.name
 
-            if name not in registered:
+            if not isinstance(tool, ExternalTool) and name not in registered:
                 raise exceptions.UnregisteredToolError(name)
 
             if name in self._tools:
@@ -49,16 +51,18 @@ class ToolExecutor:
 
             self._tools[name] = tool
             self._validators[name] = Draft202012Validator(schema)
-            self._definitions[name] = registered[name]
+            self._definitions[name] = (
+                tool.instance_definition() if isinstance(tool, ExternalTool) else registered[name]
+            )
 
     def definitions(self) -> dict[str, dict[str, Any]]:
-        """ Returns definitions for tools bound to this executor. """
+        """Returns definitions for tools bound to this executor."""
         return self._definitions
 
     def _response(self, *, success: bool, data: Any = None, error: str | None = None) -> str:
-        """ Build a bounded JSON Response """
+        """Build a bounded JSON Response"""
 
-        response: dict[str, Any] = { "success": success }
+        response: dict[str, Any] = {"success": success}
 
         if success:
             response["data"] = data
@@ -74,17 +78,16 @@ class ToolExecutor:
             total_bytes += len(part.encode("utf-8"))
 
             if total_bytes > self._limits.max_result_bytes:
-                return json.dumps({
-                    "success": False,
-                    "error": "Tool result exceeds maximum allowed size."
-                })
+                return json.dumps(
+                    {"success": False, "error": "Tool result exceeds maximum allowed size."}
+                )
 
             parts.append(part)
 
         return "".join(parts)
 
     def execute(self, name: str, args: dict[str, Any]) -> str:
-        """ Validate and execute an explicitly bound tool. """
+        """Validate and execute an explicitly bound tool."""
 
         if name not in self._tools:
             return self._response(success=False, error=f"Tool not available: {name}")
@@ -103,7 +106,7 @@ class ToolExecutor:
 
         try:
             self._validators[name].validate(args)
-        
+
         except ValidationError as exc:
             return self._response(success=False, error=f"Invalid arguments: {exc.message}")
 
