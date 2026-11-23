@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from openai import APIError
 
 from harness.exceptions import ApplicationException
-from harness.llms import SyncTextLLMClient
+from harness.llms import SyncTextLLMClient, TextOnlyRetryClient
 from harness.logger import ApplicationLogger
 from harness.mcp import MCPRuntime, load_mcp_config
 from harness.shortcuts.generic_scmt import SCMTTAgent, SCMTTConfig
@@ -19,7 +19,7 @@ def main() -> None:
     load_dotenv()
     servers = load_mcp_config(ROOT / "servers.json")
 
-    client = SyncTextLLMClient()
+    client = TextOnlyRetryClient(SyncTextLLMClient())
     prompt = (ROOT / "system.md").read_text(encoding="utf-8")
 
     with closing(ApplicationLogger(ROOT / "logs", console=True)) as logger:
@@ -51,9 +51,10 @@ def main() -> None:
                                 pass
                         except (ApplicationException, APIError) as exc:
                             logger.warning(
-                                "Turn failed (%s). Conversation reset.", type(exc).__name__
+                                "Turn failed (%s): %s", type(exc).__name__, exc.__cause__ or exc
                             )
                             agent.reset()
+                            logger.info("Turn failed. Conversation history was cleared.")
 
 
 if __name__ == "__main__":

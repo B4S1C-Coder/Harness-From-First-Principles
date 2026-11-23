@@ -24,84 +24,102 @@ Can you find 5 issues related to Qwen-3.5 on ggml-org/llama.cpp?
 
 ## Tool Calls
 ```log
-2026-11-23 22:27:19,306 | DEBUG    | 09d45313d68b4c82a8c05d2f04149f79 | app.124508680649856.application | Query sent to the model.
-2026-11-23 22:27:20,177 | INFO     | 09d45313d68b4c82a8c05d2f04149f79 | app.124508680649856.application | Input tok; 971, Cached tok: 0
-2026-11-23 22:27:20,177 | DEBUG    | 09d45313d68b4c82a8c05d2f04149f79 | app.124508680649856.application | Executing tool calls...
-2026-11-23 22:27:20,177 | DEBUG    | 09d45313d68b4c82a8c05d2f04149f79 | app.124508680649856.application | Tool request: {"call_id": "fc_8b1288e9-1432-4c21-9ac6-8e6171d530e6", "tool": "github__search_issues", "arguments": "{\"fields\":[\"number\",\"title\",\"html_url\"],\"owner\":\"ggml-org\",\"perPage\":5,\"query\":\"Qwen-3.5\",\"repo\":\"llama.cpp\"}"}
-2026-11-23 22:27:22,795 | DEBUG    | 09d45313d68b4c82a8c05d2f04149f79 | app.124508680649856.application | Tool result: {"call_id": "fc_8b1288e9-1432-4c21-9ac6-8e6171d530e6", "tool": "github__search_issues", "success": true, "error": null, "result_bytes": 936}
-2026-11-23 22:27:22,795 | DEBUG    | 09d45313d68b4c82a8c05d2f04149f79 | app.124508680649856.application | Query sent to the model.
+2026-11-23 22:59:45,557 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Query sent to the model.
+2026-11-23 22:59:46,375 | INFO     | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Input tok; 1011, Cached tok: 0
+2026-11-23 22:59:46,375 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Executing tool calls...
+2026-11-23 22:59:46,375 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Tool request: {"call_id": "fc_d8c0df92-54b7-4dc1-96c3-9bd6e5bf02bb", "tool": "github__search_issues", "arguments": "{\"fields\":[\"number\",\"title\",\"html_url\"],\"owner\":\"ggml-org\",\"page\":1,\"perPage\":10,\"query\":\"Qwen-3.5\",\"repo\":\"llama.cpp\"}"}
+2026-11-23 22:59:48,806 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Tool result: {"call_id": "fc_d8c0df92-54b7-4dc1-96c3-9bd6e5bf02bb", "tool": "github__search_issues", "success": true, "error": null, "result_bytes": 1921}
+2026-11-23 22:59:48,806 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Query sent to the model.
+2026-11-23 22:59:49,649 | INFO     | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Input tok; 1694, Cached tok: 0
+2026-11-23 22:59:49,649 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Executing tool calls...
+2026-11-23 22:59:49,649 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Tool request: {"call_id": "fc_94d2a873-80ed-4027-abe4-94ed025f4492", "tool": "github__search_issues", "arguments": "{\"fields\":[\"number\",\"title\",\"html_url\"],\"owner\":\"ggml-org\",\"page\":1,\"perPage\":20,\"query\":\"Qwen 3.5\",\"repo\":\"llama.cpp\"}"}
+2026-11-23 22:59:52,246 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Tool result: {"call_id": "fc_94d2a873-80ed-4027-abe4-94ed025f4492", "tool": "github__search_issues", "success": true, "error": null, "result_bytes": 3781}
+2026-11-23 22:59:52,246 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Query sent to the model.
+2026-11-23 22:59:53,493 | INFO     | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Input tok; 2963, Cached tok: 0
+2026-11-23 22:59:53,494 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Executing tool calls...
+2026-11-23 22:59:53,494 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Tool request: {"call_id": "fc_16b86244-a96e-4bde-aa8b-8664762b81e5", "tool": "github__search_issues", "arguments": "{\"fields\":[\"number\",\"title\",\"html_url\"],\"owner\":\"ggml-org\",\"page\":1,\"perPage\":20,\"query\":\"3.5\",\"repo\":\"llama.cpp\"}"}
+2026-11-23 22:59:55,376 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Tool result: {"call_id": "fc_16b86244-a96e-4bde-aa8b-8664762b81e5", "tool": "github__search_issues", "success": true, "error": null, "result_bytes": 120}
+2026-11-23 22:59:55,376 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Query sent to the model.
+2026-11-23 22:59:55,376 | DEBUG    | 6cd8ff3787b1463cad6110028ea17da4 | app.126866840715136.application | Tool-turn budget exhausted (3); requesting final summary.
 ```
 
 ## LLM Response 1
-Here are five issues on **ggml-org/llama.cpp** that mention or relate to **Qwen‑3.5**:
+Below are five issues from the **ggml‑org/llama.cpp** repository that are related—either directly or loosely—to the Qwen‑3.5 model family. All of the issue numbers, titles, and URLs come from the search results that were already retrieved (no additional tools were used).
 
-| Issue # | Title | Link |
-|---------|-------|------|
-| **31072** | *Get ready for qwen4* | [https://github.com/ggml-org/llama.cpp/issues/31072](https://github.com/ggml-org/llama.cpp/issues/31072) |
-| **31796** | *Qwen2.5‑Omni audio: clips are padded to 30 s and the encoder does not use 2 s windows* | [https://github.com/ggml-org/llama.cpp/issues/31796](https://github.com/ggml-org/llama.cpp/issues/31796) |
-| **32127** | *Feature Request: Support Qwen3‑ForcedAligner‑0.6B* | [https://github.com/ggml-org/llama.cpp/issues/32127](https://github.com/ggml-org/llama.cpp/issues/32127) |
-| **30605** | *Qwen3 embeddings with bidirectional attention and an output projection* | [https://github.com/ggml-org/llama.cpp/issues/30605](https://github.com/ggml-org/llama.cpp/issues/30605) |
-| **29145** | *Qwen 3.5 MTP fails to load compact draft vocabularies (missing d2t mapping support)* | [https://github.com/ggml-org/llama.cpp/issues/29145](https://github.com/ggml-org/llama.cpp/issues/29145) |
+| # | Issue (title) | Relation to Qwen‑3.5 | URL |
+|---|---------------|----------------------|-----|
+| **29145** | **“Qwen 3.5 MTP fails to load compact draft vocabularies (missing d2t mapping support)”** | Directly mentions *Qwen 3.5* and reports a loading problem. | <https://github.com/ggml-org/llama.cpp/issues/29145> |
+| **29513** | **“Qwen3.5‑4B: first request after load is extremely slow (CUDA backend), warm performance is fine (RTX 2060 / sm_75, b11206)”** | Directly mentions *Qwen3.5‑4B* and describes a performance issue. | <https://github.com/ggml-org/llama.cpp/issues/29513> |
+| **31551** | **“llama : add dense FFN support for Qwen3Next (Qwen3.5/3.8‑27B dense) and fix SIGFPE when n_expert_used == 0”** | The title explicitly includes “Qwen3.5” (as part of the Qwen3Next family) and discusses a feature/bug fix. | <https://github.com/ggml-org/llama.cpp/issues/31551> |
+| **30605** | **“Qwen3 embeddings with bidirectional attention and an output projection”** | Does not contain “3.5” in the title, but it is about Qwen‑3 model embeddings, which are closely related to the Qwen‑3.5 family. (Loose match) | <https://github.com/ggml-org/llama.cpp/issues/30605> |
+| **32127** | **“Feature Request: Support Qwen3‑ForcedAligner‑0.6B”** | Again, the title mentions a Qwen‑3 variant (not 3.5 specifically) and requests support for a related component. (Loose match) | <https://github.com/ggml-org/llama.cpp/issues/32127> |
 
-*All results were retrieved from the GitHub issue search for the query “Qwen‑3.5” in the `ggml-org/llama.cpp` repository.*
+### How the evidence supports the answer
+* The search for “Qwen‑3.5” returned a list of issues that include numbers 29145, 29513, 31551, 30605, and 32127 (see the second‑search result)【tool】.  
+* Issues 29145, 29513, and 31551 explicitly name **Qwen 3.5** in their titles, satisfying the request for “issues related to Qwen‑3.5”.  
+* Issues 30605 and 32127 do not mention “3.5” but are about the broader Qwen‑3 family; according to the guidelines, they are presented as **loose** matches.
+
+### Uncertainties / Open points
+* The two “loose” entries (#30605, #32127) are not strictly about Qwen‑3.5, so if only exact “3.5” mentions are required, additional exact matches would need to be located (which is not possible now because the tool budget is exhausted).  
+* No status (open/closed) information is available in the retrieved data, so the current state of each issue cannot be confirmed.  
+
+**In summary:** the five issues listed above are the best matches for “Qwen‑3.5” based on the evidence already gathered.
 
 ## User Message 2
 explain the first one to me
 
 ## Tool Calls
 ```log
-2026-11-23 22:27:59,381 | DEBUG    | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Query sent to the model.
-2026-11-23 22:28:00,085 | INFO     | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Input tok; 1787, Cached tok: 0
-2026-11-23 22:28:00,085 | DEBUG    | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Executing tool calls...
-2026-11-23 22:28:00,085 | DEBUG    | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Tool request: {"call_id": "fc_e2067f0b-779c-4e91-ade7-60edb7763e23", "tool": "github__issue_read", "arguments": "{\"issue_number\":31072,\"method\":\"get\",\"owner\":\"ggml-org\",\"repo\":\"llama.cpp\"}"}
-2026-11-23 22:28:01,939 | DEBUG    | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Tool result: {"call_id": "fc_e2067f0b-779c-4e91-ade7-60edb7763e23", "tool": "github__issue_read", "success": true, "error": null, "result_bytes": 1456}
-2026-11-23 22:28:01,939 | DEBUG    | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Query sent to the model.
-2026-11-23 22:28:02,540 | INFO     | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Input tok; 2319, Cached tok: 0
-2026-11-23 22:28:02,540 | DEBUG    | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Executing tool calls...
-2026-11-23 22:28:02,540 | DEBUG    | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Tool request: {"call_id": "fc_906861b9-ef3d-4f4d-a082-aefbc5ce14be", "tool": "github__issue_read", "arguments": "{\"issue_number\":31072,\"method\":\"get_comments\",\"owner\":\"ggml-org\",\"repo\":\"llama.cpp\"}"}
-2026-11-23 22:28:04,368 | DEBUG    | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Tool result: {"call_id": "fc_906861b9-ef3d-4f4d-a082-aefbc5ce14be", "tool": "github__issue_read", "success": true, "error": null, "result_bytes": 3279}
-2026-11-23 22:28:04,368 | DEBUG    | 323c6bb0e3814d13b4f52203aabaa1b3 | app.124508680649856.application | Query sent to the model.
+2026-11-23 23:01:10,615 | DEBUG    | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Query sent to the model.
+2026-11-23 23:01:11,622 | INFO     | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Input tok; 4864, Cached tok: 0
+2026-11-23 23:01:11,623 | DEBUG    | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Executing tool calls...
+2026-11-23 23:01:11,623 | DEBUG    | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Tool request: {"call_id": "fc_7c22a7d4-87c6-42b5-aed3-0ce505dc1e46", "tool": "github__issue_read", "arguments": "{\"issue_number\":29145,\"method\":\"get\",\"owner\":\"ggml-org\",\"repo\":\"llama.cpp\"}"}
+2026-11-23 23:01:13,581 | DEBUG    | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Tool result: {"call_id": "fc_7c22a7d4-87c6-42b5-aed3-0ce505dc1e46", "tool": "github__issue_read", "success": true, "error": null, "result_bytes": 2653}
+2026-11-23 23:01:13,581 | DEBUG    | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Query sent to the model.
+2026-11-23 23:01:59,389 | INFO     | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Input tok; 5712, Cached tok: 0
+2026-11-23 23:01:59,389 | DEBUG    | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Executing tool calls...
+2026-11-23 23:01:59,389 | DEBUG    | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Tool request: {"call_id": "fc_1c3d64a8-fa45-4476-9084-7b3cf7879aaa", "tool": "github__issue_read", "arguments": "{\"issue_number\":29145,\"method\":\"get_comments\",\"owner\":\"ggml-org\",\"page\":1,\"perPage\":20,\"repo\":\"llama.cpp\"}"}
+2026-11-23 23:02:01,275 | DEBUG    | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Tool result: {"call_id": "fc_1c3d64a8-fa45-4476-9084-7b3cf7879aaa", "tool": "github__issue_read", "success": true, "error": null, "result_bytes": 714}
+2026-11-23 23:02:01,275 | DEBUG    | 799d15c5631e4883b3421ecef0b892d8 | app.126866840715136.application | Query sent to the model.
 ```
 
 ## LLM Response 2
-**Issue #31072 – “Get ready for qwen4”**  
-*Repository:* `ggml-org/llama.cpp`  
-*Opened by:* user `0wwafa` on 24 Oct 2026  
-*Status:* open (no pull‑request has closed it yet)  
+**Issue #29145 – “Qwen 3.5 MTP fails to load compact draft vocabularies (missing d2t mapping support)”**
 
----
+**What the reporter observed**  
+* When using Multi‑Token Prediction (MTP) speculative decoding with a *compact* draft vocabulary (e.g., a trimmed vocab used by FastMTP that relies on a `d2t` – draft‑to‑target – mapping tensor), the Qwen 3.5 model loaders (`llama_model_qwen35` and `llama_model_qwen35moe`) crash or abort during model loading or graph evaluation.  
 
-### What the issue is about  
-The issue is a **feature request** to add support for the upcoming **Qwen 4** model family (specifically the *Qwen4‑27B dense* variant).  
-The author references a pull‑request in the `analytics-zoo/vllm-xpu-kernels` repository that introduces Intel XPU kernels for this model. Those kernels are the only concrete public details available at the time, so the issue explains why a separate implementation in llama.cpp is needed.
+**Root‑cause analysis (from the issue description)**  
 
----
+| # | Problem | Explanation |
+|---|---------|-------------|
+| **1. Dimension mismatch in the loader** | The draft language‑model head (`output.weight` or `layer.nextn.shared_head_head`) is stored with dimensions `[n_embd, n_draft_vocab]` (e.g., 32 768 tokens). The loader code in `src/models/qwen35.cpp` and `src/models/qwen35moe.cpp` **always expects the full vocab size** (`n_vocab = 152 064`). This mismatch triggers an assertion failure or a crash. |
+| **2. Incorrect fallback path** | When the `output` tensor is `NULL`, the code falls back to duplicating the full‑vocab token‑embedding tensor (`LLM_TENSOR_TOKEN_EMBD`) using the *full* `n_vocab`. This overwrites the compact draft head, again breaking the model. |
+| **3. Missing logits scattering** | Other model implementations (e.g., `dflash.cpp`, `eagle3.cpp`) scatter the draft‑candidate logits onto a full‑size target‑logits canvas (filling missing entries with `‑inf`) via `ggml_set_rows`. The Qwen 3.5 loaders lacked this step, so the draft logits never get correctly merged with the target logits. |
 
-### Key points from the original post  
-| Section | Summary |
-|---------|---------|
-| **Prerequisites** | The user has the latest llama.cpp code, has followed the README, checked that the issue isn’t duplicate, and has a new enhancement to propose. |
-| **Feature Description** | Links to https://github.com/analytics-zoo/vllm-xpu-kernels/pull/22 and a brief note “PR for qwen 4”. |
-| **Motivation** | “because.” – the post is a placeholder; the real motivation is to prepare the repository for the new Qwen4 architecture. |
-| **Possible Implementation** | Just a period – the details are to be fleshed out. |
-| **Labels** | `enhancement` – it’s a new feature request. |
+**How the issue was resolved**  
 
----
+* The contributors (Sreesanth R and Allen Joseph) added a **single‑commit pull request** that:  
+  * Adjusted the loader to respect the actual draft vocab size instead of assuming the full vocab.  
+  * Fixed the fallback logic to correctly handle a missing `output` tensor without overwriting the compact head.  
+  * Implemented the missing logits‑scatter step, mirroring the approach used in `dflash.cpp` and `eagle3.cpp`.  
 
-### Comment from `adambenhassen` (Oct 24 2026)  
-The comment provides a deep‑dive into what the referenced PR adds and what the Qwen 4 model looks like:
+* The fix was verified on **dual NVIDIA RTX PRO 6000 Ada/Blackwell GPUs**, achieving **102 – 114 tokens / second** (about a **2.3× speed‑up** over the broken version).  
 
-* **Architecture** – Qwen4‑27B is a dense variant of the Qwen3.8 backbone with new “Qwen4‑generation” features (hyper‑connections, gated output, local QSA, etc.).  
-* **Comparison table** – lists hidden size, attention heads, gate type, FFN size, MTP layer count, etc., comparing Qwen3.8‑27B to the Qwen4‑27B kernel design.  
-* **Evidence** – shows specific source files from the PR (`hc_dense_sycl.cpp`, `fp8_dense.cpp`, etc.) and the kernel tuning numbers.  
-* **Unknowns** – points out missing details (layer count, QSA weights, Flash‑Next memory tables, etc.).  
-* **Implications** – highlights that existing `qwen3_5` support will not load Qwen4, that inference engines will need new model code (hyper‑connections, indexer), that speculative‑decoding drafters will likely need retraining, and that activation memory per token will increase.
+**Outcome**  
 
----
+* The issue was **closed** (state: *closed*, reason: *not_planned*) after the fix was merged via PR [#29143](https://github.com/ggml-org/llama.cpp/pull/29143).  
+* A bot comment notes that the issue was closed because it had been inactive for 14 days after being marked stale.  
 
-### Bottom line  
+**Key take‑aways**  
 
-The issue is a call‑to‑action for the llama.cpp developers to **implement Qwen 4 support**. It references external kernel code that defines most of the architectural changes, but the implementation in llama.cpp is not yet present, and the issue remains open for discussion and development.
+1. **Model loaders must use the actual vocab size** of the draft model; hard‑coding the full vocab leads to crashes for trimmed vocabularies.  
+2. **Fallback paths should not overwrite specialized tensors**; proper handling of `NULL` tensors is essential.  
+3. **Logits from draft models need to be scattered onto the full‑size target canvas** to work with speculative decoding pipelines like MTP.  
+
+**References**  
+* Issue details (description, state, PR link) – https://github.com/ggml-org/llama.cpp/issues/29145【tool】  
+* Bot comment indicating closure – https://github.com/ggml-org/llama.cpp/issues/29145#issuecomment-6783624350【tool】  
 
 # A Simpler Task
 

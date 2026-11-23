@@ -11,8 +11,9 @@ from openai.types.chat import (
 from ..helpers import load_env
 from .. import exceptions, PKG_ROOT_DIR
 
+
 def guarded_execution[**P, R](func: Callable[P, R]) -> Callable[P, R]:
-    
+
     source_file = Path(func.__code__.co_filename)
 
     try:
@@ -20,11 +21,8 @@ def guarded_execution[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     except ValueError:
         relative_path = Path(source_file.name)
 
-    source = (
-        f"{func.__qualname__} "
-        f"({relative_path}:{func.__code__.co_firstlineno})"        
-    )
-    
+    source = f"{func.__qualname__} ({relative_path}:{func.__code__.co_firstlineno})"
+
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         try:
@@ -44,14 +42,14 @@ def guarded_execution[**P, R](func: Callable[P, R]) -> Callable[P, R]:
 
         except openai.APIStatusError as exc:
             raise exceptions.UnexpectedResponseError(
-                source,
-                f"Status code: {exc.status_code}, Message: {exc.message}"
+                source, f"Status code: {exc.status_code}, Message: {exc.message}"
             ) from exc
+
     return wrapper
 
 
 class SyncTextLLMClient:
-    """ Synchronous, non streaming, text-only OpenAI Compatible LLM Client. """
+    """Synchronous, non streaming, text-only OpenAI Compatible LLM Client."""
 
     def __init__(
         self,
@@ -63,7 +61,7 @@ class SyncTextLLMClient:
         """`max_retries` is the SDK's automatic retry count for 429/5xx/connection errors. It
         waits for the provider's Retry-After hint, so raise it on tight tokens-per-minute tiers."""
 
-        self.model: str = model if model is not None else load_env("MODEL")
+        self._model = model if model is not None else load_env("MODEL")
 
         api_key = api_key if api_key is not None else load_env("API_KEY")
         provider_url = provider_url if provider_url is not None else load_env("MODEL_URL")
@@ -72,9 +70,17 @@ class SyncTextLLMClient:
             base_url=provider_url, api_key=api_key, max_retries=max_retries
         )
 
+    @property
+    def model(self) -> str:
+        return self._model
+
+    @model.setter
+    def model(self, value: str) -> None:
+        self._model = value
+
     @guarded_execution
     def check_connection(self):
-        """ Would throw InvalidAPIKeyError if it fails """
+        """Would throw InvalidAPIKeyError if it fails"""
         return self.__client.models.list()
 
     @guarded_execution
@@ -85,7 +91,7 @@ class SyncTextLLMClient:
         *,
         dangerously_ignore_usage: bool = False,
     ) -> tuple[ChatCompletion, int, int]:
-        """ Generates the next message in the message list provided """
+        """Generates the next message in the message list provided"""
 
         response = self.__client.chat.completions.create(
             model=self.model,
@@ -93,7 +99,7 @@ class SyncTextLLMClient:
             tools=tools if tools else openai.omit,
             tool_choice="auto" if tools else "none",
         )
-        
+
         usage = response.usage
 
         if usage is None:
@@ -104,11 +110,7 @@ class SyncTextLLMClient:
                 )
 
             return response, 0, 0
-        
+
         details = usage.prompt_tokens_details
 
-        return (
-            response,
-            usage.prompt_tokens,
-            details.cached_tokens or 0 if details else 0
-        )
+        return (response, usage.prompt_tokens, details.cached_tokens or 0 if details else 0)

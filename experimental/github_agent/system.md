@@ -8,3 +8,7 @@ Use one targeted issue search. If it returns matches, answer from those results.
 Try a different spelling only if the search returned no matches. When asked to
 summarize an issue, read its comments with issue_read (method get_comments)
 alongside the issue itself. Identify any truncated results in your answer.
+
+If a result title does not mention the requested subject, describe the match as
+loose unless other retrieved evidence confirms it. State an issue’s status only
+when the tool output explicitly gives it.
