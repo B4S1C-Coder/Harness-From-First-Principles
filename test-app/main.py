@@ -36,18 +36,35 @@ def database() -> psycopg.Connection:
     return psycopg.connect(os.environ["DATABASE_URL"], row_factory=dict_row)
 
 
+def initialize_posts(conn: psycopg.Connection) -> None:
+    # Serialize startup even on the first run, before the posts table exists.
+    conn.execute("SELECT pg_advisory_xact_lock(hashtext('commons.initialize_posts'))")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS posts (
+            id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            author text NOT NULL,
+            body text NOT NULL,
+            likes integer NOT NULL DEFAULT 0,
+            created_at timestamptz NOT NULL DEFAULT now()
+        )
+    """)
+    conn.execute("LOCK TABLE posts IN SHARE ROW EXCLUSIVE MODE")
+    conn.execute("""
+        INSERT INTO posts (author, body, likes)
+        SELECT * FROM (VALUES
+            ('Mira',
+             'The library has a new shelf for book swaps. I left a mystery novel there.', 5),
+            ('Theo', 'Who is up for a Saturday walk by the river?', 8),
+            ('June', 'First tomatoes from the balcony garden today!', 2)
+        ) AS samples(author, body, likes)
+        WHERE NOT EXISTS (SELECT 1 FROM posts)
+    """)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     with database() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS posts (
-                id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-                author text NOT NULL,
-                body text NOT NULL,
-                likes integer NOT NULL DEFAULT 0,
-                created_at timestamptz NOT NULL DEFAULT now()
-            )
-        """)
+        initialize_posts(conn)
     producer = Producer({"bootstrap.servers": os.environ["KAFKA_BOOTSTRAP_SERVERS"]})
     formatter = logging.Formatter(
         "%(asctime)s %(levelname)s [%(threadName)s] %(name)s: %(message)s"

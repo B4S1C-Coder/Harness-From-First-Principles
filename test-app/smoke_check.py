@@ -24,6 +24,23 @@ def api(path: str, payload: dict | None = None) -> dict | list:
 
 
 class SmokeCheck(unittest.TestCase):
+    def test_initialize_empty_and_existing_feed(self) -> None:
+        from main import database, initialize_posts
+
+        with database() as conn:
+            conn.execute("CREATE TEMP TABLE posts (LIKE public.posts INCLUDING ALL)")
+            initialize_posts(conn)
+            seeded = conn.execute("SELECT * FROM posts ORDER BY id").fetchall()
+            self.assertEqual(len(seeded), 3)
+            initialize_posts(conn)
+            self.assertEqual(conn.execute("SELECT * FROM posts ORDER BY id").fetchall(), seeded)
+
+            conn.execute("DELETE FROM posts")
+            conn.execute("INSERT INTO posts (author, body) VALUES ('Reader', 'My first post')")
+            existing = conn.execute("SELECT * FROM posts").fetchall()
+            initialize_posts(conn)
+            self.assertEqual(conn.execute("SELECT * FROM posts").fetchall(), existing)
+
     def test_post_feed_and_like(self) -> None:
         post = api("", {"author": "Smoke check", "body": uuid4().hex})
         self.assertEqual(api(f"/{post['id']}"), post)
