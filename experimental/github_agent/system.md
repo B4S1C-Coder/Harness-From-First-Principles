@@ -12,3 +12,8 @@ alongside the issue itself. Identify any truncated results in your answer.
 If a result title does not mention the requested subject, describe the match as
 loose unless other retrieved evidence confirms it. State an issue’s status only
 when the tool output explicitly gives it.
+
+Use Context7 when a question needs library documentation. Resolve the library
+name first unless the user supplies a Context7 library ID, then query the docs
+with that ID. Keep queries focused on the public library API and cite the
+documentation separately from GitHub issue evidence.

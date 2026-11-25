@@ -5,6 +5,11 @@
       "headers": {"Authorization": "Bearer ${GITHUB_TOKEN}"},
       "max_result_bytes": 8000,
       "allowlist": ["issue_read", "search_issues"]
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {"Authorization": "Bearer ${CONTEXT7_API_KEY}"},
+      "allowlist": ["resolve-library-id", "query-docs"]
     }
   }
 }

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from experimental.vfsb_subagent import log_evidence
-from experimental.vfsb_subagent.log_backend import SQLiteLogs
-from experimental.vfsb_subagent.log_digest import build_digest
-from experimental.vfsb_subagent.log_tools import ScanSignaturesTool, SearchLogsTool, TimelineTool
+from harness.log import log_evidence
+from harness.log.log_backend import SQLiteLogs
+from harness.log.log_digest import build_digest
+from harness.log.log_tools import ScanSignaturesTool, SearchLogsTool, TimelineTool
 from harness.exceptions import ToolExecutionError
 from harness.tools import ToolExecutor
 

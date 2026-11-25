@@ -1,0 +1,10 @@
+[project]
+name = "test-app"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "confluent-kafka>=2.16.2",
+    "fastapi>=0.165.0",
+    "psycopg[binary]>=3.3.9",
+    "uvicorn>=0.54.0",
+]

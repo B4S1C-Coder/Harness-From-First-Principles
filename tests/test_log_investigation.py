@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from experimental.vfsb_subagent.log_backend import SQLiteLogs
-from experimental.vfsb_subagent.query_helper import QueryHelper
+from harness.log.log_backend import SQLiteLogs
+from harness.log.query_helper import QueryHelper
 from harness.exceptions import ToolExecutionError
 
 
@@ -111,7 +111,7 @@ def test_repair_and_isolation(logs) -> None:
 
 def test_json_values_and_tool_bounds(logs, app_logger) -> None:
     from harness.tools import ToolExecutor
-    from experimental.vfsb_subagent.log_tools import (
+    from harness.log.log_tools import (
         LogOverviewTool,
         SearchLogsTool,
         NearbyLogsTool,
@@ -155,7 +155,7 @@ def test_json_values_and_tool_bounds(logs, app_logger) -> None:
 
 def test_incident_evidence_on_sample() -> None:
     from pathlib import Path
-    from experimental.vfsb_subagent.log_evidence import scan, timeline, nearby
+    from harness.log.log_evidence import scan, timeline, nearby
 
     db = SQLiteLogs(Path(__file__).resolve().parents[1] / "experimental/data/workspace")
     try:

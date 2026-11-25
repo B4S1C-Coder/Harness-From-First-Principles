@@ -1,0 +1,11 @@
+{
+  "name": "commons-ui",
+  "private": true,
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "build": "esbuild src.jsx --bundle --minify --outfile=dist/app.js && cp index.html dist/"
+  },
+  "dependencies": {"react": "^19.2.0", "react-dom": "^19.2.0"},
+  "devDependencies": {"esbuild": "^0.25.12"},
+  "pnpm": {"onlyBuiltDependencies": ["esbuild"]}
+}

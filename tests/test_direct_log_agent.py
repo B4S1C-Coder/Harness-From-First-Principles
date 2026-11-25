@@ -6,9 +6,9 @@ from types import SimpleNamespace
 import pytest
 from openai.types.chat import ChatCompletionMessage
 
-from experimental.vfsb_subagent import log_evidence, log_preamble
-from experimental.vfsb_subagent.log_backend import SQLiteLogs
-from experimental.vfsb_subagent.run import (
+from harness.log import log_evidence, log_preamble
+from harness.log.log_backend import SQLiteLogs
+from experimental.vfsb_frmwrk.run import (
     build_agent,
     run_turn,
     MAIN_AGENT_MAX_STEPS,

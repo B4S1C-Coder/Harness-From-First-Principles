@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from experimental.vfsb_subagent.log_backend import DIGEST_TIMEOUT_SECONDS, SQLiteLogs
-from experimental.vfsb_subagent.log_digest import DIGEST_BYTES, build_digest, normalize
-from experimental.vfsb_subagent.log_tools import IncidentDigestTool
+from harness.log.log_backend import DIGEST_TIMEOUT_SECONDS, SQLiteLogs
+from harness.log.log_digest import DIGEST_BYTES, build_digest, normalize
+from harness.log.log_tools import IncidentDigestTool
 from harness.exceptions import ToolExecutionError
 from harness.tools import ToolExecutor
 
@@ -130,7 +130,7 @@ def test_digest_timeout_is_a_tool_error(tmp_path, monkeypatch) -> None:
     )
     logs = SQLiteLogs(tmp_path)
     try:
-        monkeypatch.setattr("experimental.vfsb_subagent.log_backend.DIGEST_TIMEOUT_SECONDS", -1)
+        monkeypatch.setattr("harness.log.log_backend.DIGEST_TIMEOUT_SECONDS", -1)
         with pytest.raises(ToolExecutionError, match="timed out"):
             logs.digest()
     finally:

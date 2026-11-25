@@ -11,8 +11,8 @@ from experimental.vfsb_subagent.eval import meter, scorer
 from experimental.vfsb_subagent.eval.loader import Job, Label, load_jobs, workspace
 from experimental.vfsb_subagent.eval.records import Record, TurnResult, read_records
 from experimental.vfsb_subagent.eval.runner import run_jobs, run_turn
-from experimental.vfsb_subagent.log_backend import SQLiteLogs
-from experimental.vfsb_subagent.run import build_agent
+from harness.log.log_backend import SQLiteLogs
+from experimental.vfsb_frmwrk.run import build_agent
 from harness.exceptions import ConfigurationError, UnexpectedResponseError
 from harness.llms import SyncTextLLMClient
 from harness.logger import ApplicationLogger
@@ -192,7 +192,7 @@ def test_score_cli(
 def test_measured_turn_counts_helper_and_paces_across_jobs(
     dataset: Path, app_logger: ApplicationLogger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import experimental.vfsb_subagent.run as agent_module
+    import experimental.vfsb_frmwrk.run as agent_module
 
     monkeypatch.setattr(agent_module, "TokenEstimator", lambda: TokenEstimator(encoding=None))
     replies = iter(

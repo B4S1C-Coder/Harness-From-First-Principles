@@ -12,9 +12,12 @@ from harness.mcp import ServerConfig, load_mcp_config
 from harness.mcp.http_client import HTTPClient
 
 
-def test_config_requires_github_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    with pytest.raises(EnvVarNotSetError, match="GITHUB_TOKEN"):
+@pytest.mark.parametrize("missing", ["GITHUB_TOKEN", "CONTEXT7_API_KEY"])
+def test_config_requires_credentials(monkeypatch: pytest.MonkeyPatch, missing: str) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "dummy-pat")
+    monkeypatch.setenv("CONTEXT7_API_KEY", "dummy-context7")
+    monkeypatch.delenv(missing)
+    with pytest.raises(EnvVarNotSetError, match=missing):
         load_mcp_config(run.ROOT / "servers.json")
 
 
@@ -26,6 +29,7 @@ def test_issue_turn(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "dummy-pat")
+    monkeypatch.setenv("CONTEXT7_API_KEY", "dummy-context7")
     monkeypatch.setattr(run, "load_dotenv", Mock())
     monkeypatch.setattr(run, "ApplicationLogger", Mock(return_value=app_logger))
     questions = iter(
@@ -35,7 +39,19 @@ def test_issue_turn(
     monkeypatch.setattr("builtins.input", lambda _: next(questions))
     transport = Mock(spec=HTTPClient)
 
+    docs = Mock(spec=HTTPClient)
+    docs.request.side_effect = [
+        {"protocolVersion": "2025-11-25", "capabilities": {"tools": {}}},
+        {"tools": [{"name": "resolve-library-id"}, {"name": "query-docs"}]},
+    ]
+
     def connect(name: str, config: ServerConfig) -> Mock:
+        if name == "context7":
+            assert config.url == "https://mcp.context7.com/mcp"
+            assert config.headers == {"Authorization": "Bearer dummy-context7"}
+            docs.name = name
+            docs.config = config
+            return docs
         assert config.url == "https://api.githubcopilot.com/mcp/"
         assert config.headers["Authorization"] == "Bearer dummy-pat"
         transport.name = name
@@ -82,6 +98,14 @@ def test_issue_turn(
     run.main()
     transport.request.assert_any_call("tools/call", {"name": "issue_read", "arguments": args})
     transport.close.assert_called_once()
+    docs.close.assert_called_once()
+    definitions = llm.generate_next.call_args_list[0].args[0]
+    assert {tool["function"]["name"] for tool in definitions} == {
+        "github__issue_read",
+        "github__search_issues",
+        "context7__resolve-library-id",
+        "context7__query-docs",
+    }
     if summary != "unused":
         calls = llm.generate_next.call_args_list
         assert len(calls) == 7

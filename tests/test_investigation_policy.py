@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import pytest
 from openai.types.chat import ChatCompletionMessage
 
-from experimental.vfsb_subagent.log_backend import SQLiteLogs
-from experimental.vfsb_subagent.log_tools import SearchLogsTool
+from harness.log.log_backend import SQLiteLogs
+from harness.log.log_tools import SearchLogsTool
 from harness.exceptions import UnexpectedResponseError, ValueValidationError
 from harness.llms import SyncTextLLMClient
 from harness.logger import ApplicationLogger
@@ -190,7 +190,7 @@ def test_empty_tools_disable_provider_tool_choice() -> None:
 
 
 def test_completed_turns_save_exact_handoffs(tmp_path: Path, app_logger: ApplicationLogger) -> None:
-    from experimental.vfsb_subagent.run import run_turn
+    from experimental.vfsb_frmwrk.run import run_turn
 
     outputs = tmp_path / "outputs"
     backend = SQLiteLogs(tmp_path)
