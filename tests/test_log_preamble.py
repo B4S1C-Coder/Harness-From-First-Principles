@@ -3,11 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from experimental.vfsb_subagent import log_preamble
-from experimental.vfsb_subagent.log_backend import SQLiteLogs
-from experimental.vfsb_subagent.log_evidence import timeline
-from experimental.vfsb_subagent.log_pivots import select_pivots
-from experimental.vfsb_subagent.log_tools import (
+from harness.log import log_preamble
+from harness.log.log_backend import SQLiteLogs
+from harness.log.log_evidence import timeline
+from harness.log.log_pivots import select_pivots
+from harness.log.log_tools import (
     IncidentDigestTool,
     NearbyLogsTool,
     ScanSignaturesTool,

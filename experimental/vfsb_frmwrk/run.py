@@ -1,0 +1,128 @@
+from datetime import UTC, datetime
+from pathlib import Path
+from uuid import uuid4
+
+from dotenv import load_dotenv
+
+from harness.shortcuts.generic_scmt import SCMTTAgent
+from harness.exceptions import UnexpectedResponseError
+from harness.compaction import tool_aware_compaction
+from harness.log.investigator import InvestigationAgent, InvestigationConfig
+from harness.log.log_backend import SQLiteLogs
+from harness.log.query_helper import QueryHelper
+from harness.log.log_tools import (
+    IncidentDigestTool,
+    ScanSignaturesTool,
+    TimelineTool,
+    SearchLogsTool,
+    NearbyLogsTool,
+    AdvancedLogAnalysisTool,
+)
+from harness.prompts import PromptStore
+from harness.llms import SyncTextLLMClient
+from harness.token_estimator import TokenEstimator
+from harness.logger import ApplicationLogger
+
+ROOT = Path(__file__).resolve().parent.parent
+PROMPT_ROOT = ROOT.parent / "examples" / "data"
+MAIN_AGENT_MAX_TOOL_TURNS = 6
+MAIN_AGENT_MAX_STEPS = MAIN_AGENT_MAX_TOOL_TURNS + 1
+
+
+def build_agent(
+    backend: SQLiteLogs,
+    logger: ApplicationLogger,
+    investigation_client: SyncTextLLMClient,
+    query_client: SyncTextLLMClient,
+    system_prompt: str,
+) -> SCMTTAgent:
+    """The investigator owns retrieval and RCA; the helper only generates queries."""
+    query_helper = QueryHelper(backend, query_client)
+    estimator = TokenEstimator()
+    if not estimator.has_tokenizer:
+        logger.warning(
+            "tiktoken o200k_harmony unavailable (`uv add tiktoken`, or no network for its first "
+            "download); context estimates fall back to bytes per token."
+        )
+    return InvestigationAgent(
+        client=investigation_client,
+        logger=logger,
+        system_prompt=system_prompt,
+        context_budget=8_000,
+        enable_context_check=True,
+        token_estimator=estimator,
+        max_tool_turns=MAIN_AGENT_MAX_TOOL_TURNS,
+        compaction_threshold=0.75,
+        recent_turns_to_keep=1,
+        compaction=tool_aware_compaction,
+        config=InvestigationConfig(
+            backend=backend,
+            tools=(
+                IncidentDigestTool(backend),
+                ScanSignaturesTool(backend),
+                TimelineTool(backend),
+                SearchLogsTool(backend),
+                NearbyLogsTool(backend),
+                AdvancedLogAnalysisTool(query_helper),
+            ),
+        ),
+    )
+
+
+def investigate_turn(agent: SCMTTAgent, query: str) -> tuple[str, int]:
+    """Return the final report and number of assistant tool-call batches."""
+    with agent.turn():
+        agent.add_user_message(query)
+        for tool_turns in range(MAIN_AGENT_MAX_STEPS):
+            if agent.step():
+                continue
+            content = agent.messages[-1].get("content")
+            if isinstance(content, str) and content.strip():
+                return content, tool_turns
+            break
+    raise UnexpectedResponseError("Investigator", "Turn ended without a final report.")
+
+
+def run_turn(agent: SCMTTAgent, query: str, outputs: Path) -> None:
+    content, _ = investigate_turn(agent, query)
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    path = outputs / f"handoff-{timestamp}-{uuid4().hex}.md"
+    try:
+        outputs.mkdir(parents=True, exist_ok=True)
+        with path.open("x", encoding="utf-8") as report:
+            report.write(content)
+    except OSError as exc:
+        agent.logger.error("Could not save handoff to %s: %s", path, exc)
+
+
+def main() -> None:
+    load_dotenv()
+    PromptStore.initialize(PROMPT_ROOT / "prompts.db")
+    logger = ApplicationLogger(ROOT / "data", console=True)
+    backend = None
+    try:
+        backend = SQLiteLogs(ROOT / "data" / "workspace")
+        agent = build_agent(
+            backend,
+            logger,
+            # Groq's free tier caps tokens per minute (8k); wait out 429s instead of crashing.
+            SyncTextLLMClient(model="openai/gpt-oss-120b", max_retries=8),
+            SyncTextLLMClient(model="openai/gpt-oss-20b", max_retries=8),
+            PromptStore.load_prompt("experimental.vfsb_subagent.main.system"),
+        )
+        while True:
+            query = input("User> ").strip()
+            if query.lower() in ("exit", "quit"):
+                break
+            if not query:
+                continue
+            run_turn(agent, query, Path(__file__).with_name("outputs"))
+    finally:
+        if backend is not None:
+            backend.close()
+        logger.close()
+        PromptStore.close()
+
+
+if __name__ == "__main__":
+    main()
