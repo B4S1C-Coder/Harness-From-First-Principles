@@ -2,10 +2,12 @@
 
 Ask about a known GitHub issue by URL or by owner, repository, and issue number.
 The agent uses the hosted GitHub MCP server's `issue_read` tool for issue details
-and comments.
+and comments. For library documentation, it can also resolve a library name
+and query its docs through the hosted Context7 MCP server.
 
 Set `GITHUB_TOKEN` to a personal access token with read access to the target
-repository's issues. Set `MODEL`, `MODEL_URL`, and `API_KEY` for a Chat Completions
+repository's issues and `CONTEXT7_API_KEY` to your Context7 API key. Both are
+required at startup. Set `MODEL`, `MODEL_URL`, and `API_KEY` for a Chat Completions
 provider that supports tool calls. Export the variables or use the repository-root
 `.env` file. The variable names are listed in `.env.example`.
 
