@@ -176,7 +176,10 @@ def build_master(
         prompts.master,
         [
             SpecialistTool(
-                "analyze_logs", "Investigate recent test-app Kafka logs.", analyze, config
+                "analyze_logs",
+                "Investigate the service's recent application logs.",
+                analyze,
+                config,
             ),
             SpecialistTool(
                 "research_mcp",

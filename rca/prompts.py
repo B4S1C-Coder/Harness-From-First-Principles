@@ -26,17 +26,26 @@ def prompt_store(database: Path = DATABASE) -> Iterator[None]:
         PromptStore.close()
 
 
+# def register() -> None:
+#     for field in fields(Prompts):
+#         key = f"rca.{field.name}.system"
+#         try:
+#             PromptStore.load_prompt(key)
+#         except KeyError:
+#             # An existing customized template may require format parameters.
+#             continue
+#         except LookupError:
+#             draft = ROOT / "prompts" / f"{field.name}.md"
+#             PromptStore.add_prompt(key, draft.read_text(encoding="utf-8").strip())
+
 def register() -> None:
     for field in fields(Prompts):
-        key = f"rca.{field.name}.system"
-        try:
-            PromptStore.load_prompt(key)
-        except KeyError:
-            # An existing customized template may require format parameters.
-            continue
-        except LookupError:
-            draft = ROOT / "prompts" / f"{field.name}.md"
-            PromptStore.add_prompt(key, draft.read_text(encoding="utf-8").strip())
+        draft = ROOT / "prompts" / f"{field.name}.md"
+        PromptStore.add_prompt(
+            f"rca.{field.name}.system",
+            draft.read_text(encoding="utf-8").strip(),
+            change_note="Sync from rca/prompts",
+        )
 
 
 def load_prompts() -> Prompts:
