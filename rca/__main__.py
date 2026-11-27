@@ -1,4 +1,3 @@
-import os
 from contextlib import closing
 from pathlib import Path
 
@@ -10,25 +9,31 @@ from harness.logger import ApplicationLogger
 from harness.mcp import MCPRuntime, load_mcp_config
 
 from .agents import build_master, run_turn
-from .kafka import KafkaLogSource
+from .config import RCAConfig
+from .prompts import load_prompts, prompt_store
 
 ROOT = Path(__file__).resolve().parent
 
 
 def main() -> None:
     load_dotenv()
-    source = KafkaLogSource(
-        os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
-        os.getenv("KAFKA_LOG_TOPIC", "app-logs"),
-    )
+    config = RCAConfig.from_env()
+    with prompt_store():
+        prompts = load_prompts()
+    from .kafka import KafkaLogSource
+
+    source = KafkaLogSource(config.brokers, config.topic, config.offsets_per_partition)
     with closing(ApplicationLogger(ROOT / "logs", console=True)) as logger:
         with MCPRuntime(load_mcp_config(ROOT / "servers.json"), logger) as runtime:
             master = build_master(
-                TextOnlyRetryClient(SyncTextLLMClient(model="openai/gpt-oss-120b")),
-                TextOnlyRetryClient(SyncTextLLMClient(model="openai/gpt-oss-20b")),
+                TextOnlyRetryClient(SyncTextLLMClient(model=config.master_model)),
+                TextOnlyRetryClient(SyncTextLLMClient(model=config.log_model)),
+                TextOnlyRetryClient(SyncTextLLMClient(model=config.research_model)),
                 logger,
                 runtime.tools,
                 source,
+                prompts,
+                config,
             )
             while True:
                 try:

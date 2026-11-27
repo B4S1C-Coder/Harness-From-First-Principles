@@ -11,11 +11,14 @@ from confluent_kafka import Consumer, KafkaError, KafkaException, TopicPartition
 from harness.exceptions import TimeoutError, ToolExecutionError
 
 
+from .config import RCAConfig
+
+
 @dataclass(frozen=True)
 class KafkaLogSource:
-    brokers: str = "localhost:9092"
-    topic: str = "app-logs"
-    offsets_per_partition: int = 1000
+    brokers: str = RCAConfig.brokers
+    topic: str = RCAConfig.topic
+    offsets_per_partition: int = RCAConfig.offsets_per_partition
 
     def lines(self) -> Iterator[tuple[str, str]]:
         try:
